@@ -119,7 +119,7 @@ def sihr_step(  # pylint: disable=R0913
 
 
 def model_iterator(
-    n_days: int,
+    n_iter: int,
     sir_fcn: Callable,
     *args,
     beta_i_fcn: Optional[Callable] = None,
@@ -130,16 +130,16 @@ def model_iterator(
     Initial data is at day zero (no step).
 
     Arguments:
-        n_days: Number of days to iterate
+        n_iter: Number of iterations
         sir_fcn: The SIR model step function
         beta_i_fcn: Function which maps infected growth for given kwargs
         kwargs: Parameters to consturct beta_i schedule and sir step
     """
     pars = kwargs.copy()
     beta_i_schedule = (
-        beta_i_fcn(n_days, **kwargs)
+        beta_i_fcn(n_iter, **kwargs)
         if beta_i_fcn is not None
-        else [kwargs.get("beta_i", None)] * n_days
+        else [kwargs.get("beta_i", None)] * n_iter
     )
 
     for beta_i in beta_i_schedule:
@@ -171,7 +171,12 @@ class FitFcn:  # pylint: disable=R0903
         beta_i_fcn: Optional[Callable] = None,
         columns: Tuple[str] = ("infected", "hospitalized"),
     ):
-        """
+        """Initializes fit function
+
+        Arguments:
+            sir_fcn: The function which executes a SIR step
+            beta_i_fcn: Function which generates a schedule for the growth rate
+            columns: Function call return specified columns as arrays
         """
         self.col_index = []
         for col in columns:
@@ -190,20 +195,42 @@ class FitFcn:  # pylint: disable=R0903
         self.sir_fcn = sir_fcn
         self.beta_i_fcn = beta_i_fcn
 
-    def __call__(self, n_days: int, p: Dict[str, FloatLike]) -> FloatLikeArray:
+    def __call__(
+        self, x: Dict[str, FloatLike], p: Dict[str, FloatLike]
+    ) -> FloatLikeArray:
+        """Runs SIR fcn step for input values x and p
+
+        Either x or p must contain keys
+            * initial_susceptible
+            * initial_infected
+            * initial_hospitalized
+            * initial_recovered
+
+        Arguments:
+            x: Must contain key "n_iter" (number of iterations)
+            p: Parameters for SIR model and beta schedule if specified
         """
-        """
+        s = x.get("initial_susceptible", None)
+        i = x.get("initial_infected", None)
+        h = x.get("initial_hospitalized", None)
+        r = x.get("initial_recovered", None)
+
         kwargs = p.copy()
         args = (
-            kwargs.pop("initial_susceptible"),
-            kwargs.pop("initial_infected"),
-            kwargs.pop("initial_hospitalized"),
-            kwargs.pop("initial_recovered"),
+            s if s is not None else kwargs.pop("initial_susceptible"),
+            i if i is not None else kwargs.pop("initial_infected"),
+            h if h is not None else kwargs.pop("initial_hospitalized"),
+            r if r is not None else kwargs.pop("initial_recovered"),
         )
-        return array(
+        y = array(
             list(
                 model_iterator(
-                    n_days, self.sir_fcn, *args, beta_i_fcn=self.beta_i_fcn, **kwargs
+                    x["n_iter"],
+                    self.sir_fcn,
+                    *args,
+                    beta_i_fcn=self.beta_i_fcn,
+                    **kwargs
                 )
             )
         )[:, self.col_index]
+        return y if len(self.col_index) > 1 else y.flatten()
