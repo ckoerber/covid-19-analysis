@@ -124,7 +124,7 @@ def model_iterator(
     *args,
     beta_i_fcn: Optional[Callable] = None,
     **kwargs
-) -> Generator[Tuple[FloatLike, FloatLike, FloatLike, FloatLike]]:
+) -> Generator[Tuple[FloatLike, FloatLike, FloatLike, FloatLike], None, None]:
     """Iterates model to build up SIR data
 
     Initial data is at day zero (no step).
@@ -142,7 +142,7 @@ def model_iterator(
         else [kwargs.get("beta_i", None)] * n_days
     )
 
-    for beta_i in enumerate(beta_i_schedule):
+    for beta_i in beta_i_schedule:
         yield args
         pars["beta_i"] = beta_i
         args = sir_fcn(*args, **pars)
@@ -168,7 +168,7 @@ class FitFcn:  # pylint: disable=R0903
     def __init__(
         self,
         sir_fcn: Callable,
-        beta_i_fcn: Optional[Callable],
+        beta_i_fcn: Optional[Callable] = None,
         columns: Tuple[str] = ("infected", "hospitalized"),
     ):
         """
@@ -206,4 +206,4 @@ class FitFcn:  # pylint: disable=R0903
                     n_days, self.sir_fcn, *args, beta_i_fcn=self.beta_i_fcn, **kwargs
                 )
             )
-        )[self.col_index]
+        )[:, self.col_index]
