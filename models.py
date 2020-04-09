@@ -2,7 +2,7 @@
 """
 from typing import Generator, Tuple, TypeVar, Callable, Optional, Dict, List, Union
 
-from numpy import exp
+from numpy import exp, arange
 from pandas import DataFrame
 
 FloatLike = TypeVar("FloatLike")
@@ -74,7 +74,7 @@ def sihr_step(  # pylint: disable=R0913
             capacity: Maximal number of hospitalized population
     """
     susceptible = sihr["susceptible"]
-    infected = sihr["susceptible"]
+    infected = sihr["infected"]
     hospitalized = sihr["hospitalized"]
     recovered = sihr["infected"]
 
@@ -82,9 +82,10 @@ def sihr_step(  # pylint: disable=R0913
 
     is_grow = kwargs["beta_i"] * susceptible * infected
     ir_loss = kwargs["gamma_i"] * infected
-    ih_loss = min(
-        kwargs["beta_h"] * infected, max(kwargs["capacity"] - hospitalized, 0)
-    )
+    ih_loss = kwargs["beta_h"] * infected
+    open_h = kwargs["capacity"] - hospitalized
+    if ih_loss > open_h:  # take this notation to conserve types
+        ih_loss -= ih_loss - open_h
     hr_loss = kwargs["gamma_h"] * hospitalized
 
     susceptible -= is_grow
@@ -131,8 +132,9 @@ def model_iterator(
         kwargs: Parameters to consturct beta_i schedule and sir step
     """
     pars = dict(kwargs)
+    x = arange(n_iter)
     beta_i_schedule = (
-        beta_i_fcn(n_iter, **kwargs)
+        beta_i_fcn(x, amplitude=kwargs["beta_i"], **kwargs)
         if beta_i_fcn is not None
         else [kwargs.get("beta_i", None)] * n_iter
     )
@@ -145,13 +147,15 @@ def model_iterator(
 
 def one_minus_logistic_fcn(  # pylint: disable=C0103
     x: FloatLikeArray,
-    amplitude: FloatLike = 1.0,
+    ratio: FloatLike = 1.0,
     decay_width: FloatLike = 1.0,
     x0: FloatLike = 0.0,
+    amplitude: FloatLike = 1.0,
+    **kwargs
 ) -> FloatLikeArray:
-    """Computes `1 - A / (1 + exp(-w(x-x0)))`.
+    """Computes `A(1 - r / (1 + exp(-w(x-x0)))`.
     """
-    return 1 - amplitude / (1 + exp(-decay_width * (x - x0)))
+    return amplitude * (1 - ratio / (1 + exp(-decay_width * (x - x0))))
 
 
 class FitFcn:  # pylint: disable=R0903
@@ -200,6 +204,7 @@ class FitFcn:  # pylint: disable=R0903
         r = x.get("initial_recovered", None)
 
         kwargs = dict(p)
+        kwargs["capacity"] = x.get("capacity", None)
         data = {
             "susceptible": s if s is not None else kwargs.pop("initial_susceptible"),
             "infected": i if i is not None else kwargs.pop("initial_infected"),
