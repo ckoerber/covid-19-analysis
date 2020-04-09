@@ -11,7 +11,7 @@ from pandas import read_csv, DataFrame
 
 BASE_URL = "https://raw.githubusercontent.com/nychealth/coronavirus-data/"
 
-COMMIT_HASH_LAST = "8562fab90b05605ef6293d60a9f2251937e5f5d7"
+COMMIT_HASH_LAST = "e19db289166f73282d39dfcef0d47a324d654c07"
 
 
 def prepare_case_hosp_death(
