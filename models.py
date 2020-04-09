@@ -2,36 +2,30 @@
 """
 from typing import Generator, Tuple, TypeVar, Callable, Optional, Dict
 
-from numpy import array, exp
+from numpy import exp
+from pandas import DataFrame
 
 FloatLike = TypeVar("FloatLike")
 FloatLikeArray = TypeVar("FloatLikeArray")
 
 
-def sir_step(
-    susceptible: FloatLike,
-    infected: FloatLike,
-    hospitalized: FloatLike,
-    recovered: FloatLike,
-    **kwargs
-) -> Tuple[FloatLike, FloatLike, FloatLike, FloatLike]:
+def sir_step(sir: Dict[str, FloatLike], **kwargs) -> Dict[str, FloatLike]:
     """Executes SIR step and patches results such that each component is larger zero.
 
     Arguments:
-        susceptible: Susceptible population
-        infected: Infected population
-        hospitalized: Hospitalized population
-        recovered: Recovered population
+        sir: FloatLike
+            susceptible: Susceptible population
+            infected: Infected population
+            recovered: Recovered population
         kwargs: FloatLike
             beta_i: Growth rate for infected
             gamma_i: Recovery rate for infected
             hospitalization_rate: Percent of new cases becoming hospitalized
-
-    Returns:
-        S, I, H, R: FloatLike
-            Hospitalized is computed by growth from
-            `(r(t) + i(t) - r(t-1) - i(t-1)) * hospitalization_rate`
     """
+    susceptible = sir["susceptible"]
+    infected = sir["infected"]
+    recovered = sir["recovered"]
+
     total = susceptible + infected + recovered
 
     is_grow = kwargs["beta_i"] * susceptible * infected
@@ -41,51 +35,49 @@ def sir_step(
     infected += is_grow - ir_loss
     recovered += ir_loss
 
+    out = {
+        "infected_new": is_grow,
+        "recovered_new": ir_loss,
+    }
+
     susceptible = max(susceptible, 0)
     infected = max(infected, 0)
     recovered = max(recovered, 0)
 
     rescale = total / (susceptible + infected + recovered)
 
-    susceptible *= rescale
-    infected *= rescale
-    recovered *= rescale
+    out["susceptible"] = susceptible * rescale
+    out["infected"] = infected * rescale
+    out["recovered"] = recovered * rescale
 
-    hospitalized = is_grow
-    hospitalized *= kwargs["hospitalization_rate"]
+    out["hospitalized_new"] = is_grow * kwargs["hospitalization_rate"]
 
-    return (
-        susceptible,
-        infected,
-        hospitalized,
-        recovered,
-    )
+    return out
 
 
 def sihr_step(  # pylint: disable=R0913
-    susceptible: FloatLike,
-    infected: FloatLike,
-    hospitalized: FloatLike,
-    recovered: FloatLike,
-    **kwargs
-) -> Tuple[FloatLike, FloatLike, FloatLike, FloatLike]:
+    sihr: Dict[str, FloatLike], **kwargs
+) -> Dict[str, FloatLike]:
     """Executes SIHR step and patches results such that each component is larger zero.
 
     Arguments:
-        susceptible: Susceptible population
-        infected: Infected population
-        hospitalized: Hospitalized population
-        recovered: Recovered population
+        sihr: FloatLike
+            susceptible: Susceptible population
+            infected: Infected population
+            hospitalized: Hospitalized population
+            recovered: Recovered population
         kwargs: FloatLike
             beta_i: Growth rate for infected
             gamma_i: Recovery rate for infected
             beta_h: Growth rate for hospitalized
             gamma_i: Recovery rate for hospitalized
             capacity: Maximal number of hospitalized population
-
-    Returns:
-        S, I, H, R: FloatLike
     """
+    susceptible = sihr["susceptible"]
+    infected = sihr["susceptible"]
+    hospitalized = sihr["hospitalized"]
+    recovered = sihr["infected"]
+
     total = susceptible + infected + recovered + hospitalized
 
     is_grow = kwargs["beta_i"] * susceptible * infected
@@ -100,6 +92,12 @@ def sihr_step(  # pylint: disable=R0913
     hospitalized += ih_loss - hr_loss
     recovered += ir_loss + hr_loss
 
+    out = {
+        "infected_new": is_grow,
+        "hospitalized_new": ih_loss,
+        "recovered_new": ir_loss + hr_loss,
+    }
+
     susceptible = max(susceptible, 0)
     infected = max(infected, 0)
     hospitalized = max(hospitalized, 0)
@@ -107,18 +105,18 @@ def sihr_step(  # pylint: disable=R0913
 
     rescale = total / (susceptible + infected + recovered + hospitalized)
 
-    return (
-        susceptible * rescale,
-        infected * rescale,
-        hospitalized * rescale,
-        recovered * rescale,
-    )
+    out["susceptible"] = susceptible * rescale
+    out["infected"] = infected * rescale
+    out["hospitalized"] = hospitalized * rescale
+    out["recovered"] = recovered * rescale
+
+    return out
 
 
 def model_iterator(
     n_iter: int,
     sir_fcn: Callable,
-    *args,
+    data: Dict[str, FloatLike],
     beta_i_fcn: Optional[Callable] = None,
     **kwargs
 ) -> Generator[Tuple[FloatLike, FloatLike, FloatLike, FloatLike], None, None]:
@@ -140,9 +138,9 @@ def model_iterator(
     )
 
     for beta_i in beta_i_schedule:
-        yield args
+        yield data
         pars["beta_i"] = beta_i
-        args = sir_fcn(*args, **pars)
+        data = sir_fcn(data, **pars)
 
 
 def one_minus_logistic_fcn(  # pylint: disable=C0103
@@ -160,13 +158,8 @@ class FitFcn:  # pylint: disable=R0903
     """Fit function wrapper
     """
 
-    _columns = ("susceptible", "infected", "hospitalized", "recovered")
-
     def __init__(
-        self,
-        sir_fcn: Callable,
-        beta_i_fcn: Optional[Callable] = None,
-        columns: Tuple[str] = ("infected", "hospitalized"),
+        self, sir_fcn: Callable, beta_i_fcn: Optional[Callable] = None,
     ):
         """Initializes fit function
 
@@ -175,26 +168,10 @@ class FitFcn:  # pylint: disable=R0903
             beta_i_fcn: Function which generates a schedule for the growth rate
             columns: Function call return specified columns as arrays
         """
-        self.col_index = []
-        for col in columns:
-            if not col in self._columns:
-                raise KeyError(
-                    "Key {col} not in expected columns {cols}".format(
-                        col=col, cols=self._columns
-                    )
-                )
-            for i, icol in enumerate(self._columns):
-                if col == icol:
-                    self.col_index.append(i)
-                    break
-
-        self.columns = columns
         self.sir_fcn = sir_fcn
         self.beta_i_fcn = beta_i_fcn
 
-    def __call__(
-        self, x: Dict[str, FloatLike], p: Dict[str, FloatLike]
-    ) -> FloatLikeArray:
+    def __call__(self, x: Dict[str, FloatLike], p: Dict[str, FloatLike]) -> DataFrame:
         """Runs SIR fcn step for input values x and p
 
         Either x or p must contain keys
@@ -213,21 +190,14 @@ class FitFcn:  # pylint: disable=R0903
         r = x.get("initial_recovered", None)
 
         kwargs = p.copy()
-        args = (
-            s if s is not None else kwargs.pop("initial_susceptible"),
-            i if i is not None else kwargs.pop("initial_infected"),
-            h if h is not None else kwargs.pop("initial_hospitalized"),
-            r if r is not None else kwargs.pop("initial_recovered"),
-        )
-        y = array(
-            list(
-                model_iterator(
-                    x["n_iter"],
-                    self.sir_fcn,
-                    *args,
-                    beta_i_fcn=self.beta_i_fcn,
-                    **kwargs
-                )
+        data = {
+            "susceptible": s if s is not None else kwargs.pop("initial_susceptible"),
+            "infected": i if i is not None else kwargs.pop("initial_infected"),
+            "hospitalized": h if h is not None else kwargs.pop("initial_hospitalized"),
+            "recovered": r if r is not None else kwargs.pop("initial_recovered"),
+        }
+        return DataFrame(
+            data=model_iterator(
+                x["n_iter"], self.sir_fcn, data, beta_i_fcn=self.beta_i_fcn, **kwargs
             )
-        )[:, self.col_index]
-        return y if len(self.col_index) > 1 else y.flatten()
+        )
