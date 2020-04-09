@@ -1,6 +1,6 @@
 """Models to analyze COVID-19 data
 """
-from typing import Generator, Tuple, TypeVar, Callable, Optional, Dict
+from typing import Generator, Tuple, TypeVar, Callable, Optional, Dict, List, Union
 
 from numpy import exp
 from pandas import DataFrame
@@ -130,7 +130,7 @@ def model_iterator(
         beta_i_fcn: Function which maps infected growth for given kwargs
         kwargs: Parameters to consturct beta_i schedule and sir step
     """
-    pars = kwargs.copy()
+    pars = dict(kwargs)
     beta_i_schedule = (
         beta_i_fcn(n_iter, **kwargs)
         if beta_i_fcn is not None
@@ -159,7 +159,12 @@ class FitFcn:  # pylint: disable=R0903
     """
 
     def __init__(
-        self, sir_fcn: Callable, beta_i_fcn: Optional[Callable] = None,
+        self,
+        sir_fcn: Callable,
+        beta_i_fcn: Optional[Callable] = None,
+        columns: Optional[List[str]] = None,
+        as_array: bool = False,
+        drop_rows: Optional[List[int]] = None,
     ):
         """Initializes fit function
 
@@ -170,8 +175,13 @@ class FitFcn:  # pylint: disable=R0903
         """
         self.sir_fcn = sir_fcn
         self.beta_i_fcn = beta_i_fcn
+        self.columns = columns
+        self.as_array = as_array
+        self.drop_rows = drop_rows
 
-    def __call__(self, x: Dict[str, FloatLike], p: Dict[str, FloatLike]) -> DataFrame:
+    def __call__(
+        self, x: Dict[str, FloatLike], p: Dict[str, FloatLike]
+    ) -> Union[DataFrame, FloatLikeArray]:
         """Runs SIR fcn step for input values x and p
 
         Either x or p must contain keys
@@ -189,15 +199,25 @@ class FitFcn:  # pylint: disable=R0903
         h = x.get("initial_hospitalized", None)
         r = x.get("initial_recovered", None)
 
-        kwargs = p.copy()
+        kwargs = dict(p)
         data = {
             "susceptible": s if s is not None else kwargs.pop("initial_susceptible"),
             "infected": i if i is not None else kwargs.pop("initial_infected"),
             "hospitalized": h if h is not None else kwargs.pop("initial_hospitalized"),
             "recovered": r if r is not None else kwargs.pop("initial_recovered"),
         }
-        return DataFrame(
+        out = DataFrame(
             data=model_iterator(
                 x["n_iter"], self.sir_fcn, data, beta_i_fcn=self.beta_i_fcn, **kwargs
             )
         )
+
+        if self.drop_rows:
+            out = out.drop(index=self.drop_rows)
+        if self.columns:
+            out = out[self.columns]
+        if self.as_array:
+            out = out.values
+            if len(out.shape) == 1 or out.shape[1] == 1:
+                out = out.flatten()
+        return out
