@@ -32,8 +32,7 @@ def sir_step(
             Hospitalized is computed by growth from
             `(r(t) + i(t) - r(t-1) - i(t-1)) * hospitalization_rate`
     """
-    ever_infected_before = infected + recovered
-    total = susceptible + ever_infected_before
+    total = susceptible + infected + recovered
 
     is_grow = kwargs["beta_i"] * susceptible * infected
     ir_loss = kwargs["gamma_i"] * infected
@@ -52,9 +51,7 @@ def sir_step(
     infected *= rescale
     recovered *= rescale
 
-    ever_infected = infected + recovered
-
-    hospitalized = ever_infected - ever_infected_before
+    hospitalized = is_grow
     hospitalized *= kwargs["hospitalization_rate"]
 
     return (
