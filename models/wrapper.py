@@ -1,6 +1,6 @@
 """Wrapper module to simplify fitting interface
 """
-from typing import Dict, Optional, Tuple, Callable, TypeVar
+from typing import Dict, Optional, Tuple, Callable, TypeVar, List
 
 from abc import ABC
 
@@ -72,8 +72,7 @@ class Model(ABC):
         }
         self._xx.update(xx)
 
-        prior = prior or {}
-        self._prior.update(prior)
+        self._prior.update(prior or {})
 
         self.set_y()
 
@@ -126,10 +125,10 @@ class Model(ABC):
         return self._fcn
 
     @property
-    def columns(self) -> Tuple[str]:  # pylint: disable=C0103
+    def columns(self) -> List[str]:  # pylint: disable=C0103
         """Returns columns to be fitted
         """
-        return self._columns
+        return list(self._columns)
 
     @property
     def data(self) -> DataFrame:  # pylint: disable=C0103
@@ -165,7 +164,7 @@ class SIRFixedBeta(Model):
         """
         super().__init__(data, columns=columns, xx=xx, prior=prior)
 
-        self.fcn = FitFcn(sir_step, columns=self.columns, as_array=True, drop_rows=[0])
+        self._fcn = FitFcn(sir_step, columns=self.columns, as_array=True, drop_rows=[0])
 
         beta0 = log(2) / 2 / self.xx["initial_susceptible"]
         prior = prior or {
@@ -174,7 +173,7 @@ class SIRFixedBeta(Model):
             "initial_infected": gvar(1.0e4, 2.0e4),
             "hospitalization_rate": gvar(0.05, 0.1),
         }
-        self.prior.update(prior)
+        self._prior.update(prior)
 
 
 class SIRLogisticBeta(Model):
@@ -191,7 +190,7 @@ class SIRLogisticBeta(Model):
         """
         super().__init__(data, columns=columns, xx=xx, prior=prior)
 
-        self.fcn = FitFcn(
+        self._fcn = FitFcn(
             sir_step,
             columns=self.columns,
             as_array=True,
@@ -209,7 +208,7 @@ class SIRLogisticBeta(Model):
             "decay_width": 1 / gvar(4, 1),
             "x0": gvar(9, 2),
         }
-        self.prior.update(prior)
+        self._prior.update(prior)
 
 
 class SIHRFixedBeta(Model):
@@ -226,7 +225,9 @@ class SIHRFixedBeta(Model):
         """
         super().__init__(data, columns=columns, xx=xx, prior=prior)
 
-        self.fcn = FitFcn(
+        self._xx["capacity"] = 20000
+
+        self._fcn = FitFcn(
             sihr_step, columns=self.columns, as_array=True, drop_rows=[0],
         )
         beta0 = log(2) / 2 / self.xx["initial_susceptible"]
@@ -237,7 +238,7 @@ class SIHRFixedBeta(Model):
             "beta_h": gvar(0.05, 0.1),
             "gamma_h": 1 / (gvar(14, 5) / self.bin_size),
         }
-        self.prior.update(prior)
+        self._prior.update(prior)
 
 
 class SIHRLogisticBeta(Model):
@@ -254,7 +255,9 @@ class SIHRLogisticBeta(Model):
         """
         super().__init__(data, columns=columns, xx=xx, prior=prior)
 
-        self.fcn = FitFcn(
+        self._xx["capacity"] = 20000
+
+        self._fcn = FitFcn(
             sihr_step,
             columns=self.columns,
             as_array=True,
@@ -273,4 +276,4 @@ class SIHRLogisticBeta(Model):
             "decay_width": 1 / gvar(4, 1),
             "x0": gvar(9, 2),
         }
-        self.prior.update(prior)
+        self._prior.update(prior)
