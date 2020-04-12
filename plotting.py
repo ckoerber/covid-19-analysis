@@ -1,17 +1,18 @@
 """Functions to simplify plotting
 """
+from typing import List, Optional
+
 from copy import deepcopy
+from datetime import date
 
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-import gvar as gv
+from numpy import arange
 from lsqfit import nonlinear_fit
-from gvar import fmt_values, fmt_errorbudget
+from gvar import fmt_values, fmt_errorbudget, mean, sdev
 
 from pandas import DataFrame
-
-from models.utils import get_doubling_time
 
 
 def hex_to_rgba(hex_str: str, alpha: float):
@@ -25,17 +26,26 @@ def hex_to_rgba(hex_str: str, alpha: float):
     return out
 
 
-def add_gvar_scatter(fig: go.Figure, gv_mode: str = "scatter", **kwargs) -> go.Figure:
+def add_gvar_scatter(
+    fig: go.Figure,
+    gv_mode: str = "scatter",
+    y_min: float = 0,
+    y_max: Optional[float] = None,
+    **kwargs,
+) -> go.Figure:
     """Wraps adds scatter for gvars
     """
     x = kwargs.pop("x")
     y = kwargs.pop("y")
 
-    y_mean = gv.mean(y)  # pylint: disable=E1101
-    y_sdev = gv.sdev(y)  # pylint: disable=E1101
+    y_mean = mean(y)  # pylint: disable=E1101
+    y_sdev = sdev(y)  # pylint: disable=E1101
 
     row, col = kwargs.pop("row", None), kwargs.pop("col", None)
     color = kwargs.pop("color", None)
+
+    yy_min = [max(yy, y_min) for yy in y_mean - y_sdev]
+    yy_max = [min(yy, y_max or yy) for yy in y_mean + y_sdev]
 
     if gv_mode == "band":
         kwargs.pop("mode", None)
@@ -44,7 +54,7 @@ def add_gvar_scatter(fig: go.Figure, gv_mode: str = "scatter", **kwargs) -> go.F
         fig.add_trace(
             go.Scatter(
                 x=x,
-                y=[max(yy, 0) for yy in y_mean - y_sdev],
+                y=yy_min,
                 fill=None,
                 mode="lines",
                 showlegend=False,
@@ -57,7 +67,7 @@ def add_gvar_scatter(fig: go.Figure, gv_mode: str = "scatter", **kwargs) -> go.F
         fig.add_trace(
             go.Scatter(
                 x=x,
-                y=(y_mean + y_sdev),
+                y=yy_max,
                 fill="tonexty",
                 mode="lines",
                 name=name,
@@ -161,7 +171,7 @@ def plot_sir_sihr_comparison(df_sir: DataFrame, df_sihr: DataFrame, capacity: in
     )
     if any(
         capacity * 0.9
-        < gv.mean(df_sihr.hospitalized.values) + gv.sdev(df_sihr.hospitalized.values)
+        < mean(df_sihr.hospitalized.values) + sdev(df_sihr.hospitalized.values)
     ):
         fig.add_trace(
             go.Scatter(
@@ -207,11 +217,12 @@ def plot_sir_sihr_comparison(df_sir: DataFrame, df_sihr: DataFrame, capacity: in
 COLUMN_NAME_MAP = {
     "initial_infected": "I(0)",
     "hospitalization_rate": "P_H",
-    "inital_doubling_time": "t2(0) [days]",
-    "recovery_days": "Recovery [days]",
+    "inital_doubling_time": "t2(0)",
+    "recovery_days_i": "Recovery I",
+    "recovery_days_h": "Recovery H",
     "ratio": "R",
-    "decay_width": "w",
-    "x0": "td",
+    "social_distance_halfing_days": "w sd",
+    "social_distance_delay": "dt sd",
 }
 
 
@@ -226,6 +237,14 @@ def summarize_fit(fit: nonlinear_fit):
             outputs[val] = outputs.pop(key)
         if key in inputs:
             inputs[val] = inputs.pop(key)
+
+    print("Legend:")
+    print(
+        "\n".join(
+            f"- {val}: {key}" for key, val in COLUMN_NAME_MAP.items() if key in fit.p
+        ),
+        "\n",
+    )
 
     print(
         fit,
@@ -243,17 +262,23 @@ def summarize_fit(fit: nonlinear_fit):
     )
 
 
-def plot_fits(fit: nonlinear_fit) -> go.Figure:
+def plot_fits(fit: nonlinear_fit, x: Optional[List[date]] = None) -> go.Figure:
     """Plots nonlinear fit object
     """
     fitted_columns = {
         col: col.replace("_", " ").capitalize() for col in fit.fcn.columns
     }
+    plot_effective_beta = fit.fcn.beta_i_fcn is not None
+
+    n_rows = 3 if plot_effective_beta else 2
     fig = make_subplots(
-        rows=2,
+        rows=n_rows,
         cols=len(fitted_columns.keys()),
         subplot_titles=list(fitted_columns.values())
-        + [col + " residual" for col in fitted_columns.values()],
+        + [col + " residual" for col in fitted_columns.values()]
+        + ([r"Social distance [%]"] if plot_effective_beta else []),
+        horizontal_spacing=0.1,
+        vertical_spacing=0.1,
     )
 
     fcn = deepcopy(fit.fcn)
@@ -262,11 +287,13 @@ def plot_fits(fit: nonlinear_fit) -> go.Figure:
 
     fit_res = fcn(fit.x, fit.p).rename(columns=fitted_columns)
 
+    x = x if x is not None else fit_res.index
+
     for n_col, (col, yy) in enumerate(zip(fitted_columns.values(), fit.y.T)):
         n_col += 1
         add_gvar_scatter(
             fig,
-            x=fit_res.index,
+            x=x,
             y=yy,
             name="Data",
             mode="markers+lines",
@@ -277,7 +304,7 @@ def plot_fits(fit: nonlinear_fit) -> go.Figure:
         )
         add_gvar_scatter(
             fig,
-            x=fit_res.index,
+            x=x,
             y=fit_res[col].values,
             name="Fit",
             mode="markers+lines",
@@ -289,7 +316,7 @@ def plot_fits(fit: nonlinear_fit) -> go.Figure:
         )
         add_gvar_scatter(
             fig,
-            x=fit_res.index,
+            x=x,
             y=yy,
             name="Data",
             mode="markers+lines",
@@ -300,18 +327,18 @@ def plot_fits(fit: nonlinear_fit) -> go.Figure:
         )
         add_gvar_scatter(
             fig,
-            x=fit_res.index,
+            x=x,
             y=yy - fit_res[col].values,
             name="Residual",
             mode="markers+lines",
             color="#2ca02c",
             row=2,
             col=n_col,
-            showlegend=n_col == 1,
+            showlegend=False,
         )
         fig.add_trace(
             go.Scatter(
-                x=fit_res.index,
+                x=x,
                 y=[0] * fit_res.shape[0],
                 mode="lines",
                 line_color="black",
@@ -320,5 +347,26 @@ def plot_fits(fit: nonlinear_fit) -> go.Figure:
             row=2,
             col=n_col,
         )
+
+    if plot_effective_beta:
+        add_gvar_scatter(
+            fig,
+            x=x,
+            y=fit.fcn.beta_i_fcn(
+                arange(fit.x["n_iter"]), **fit.fcn.convert_kwargs(fit.x, fit.p)
+            )
+            * 100,
+            mode="markers+lines",
+            gv_mode="band",
+            color="#bcbd22",
+            showlegend=False,
+            col=1,
+            row=3,
+            y_max=100,
+        )
+
+    fig.update_layout(width=800, height=400 * n_rows)
+    if plot_effective_beta:
+        fig.update_layout(yaxis5=dict(range=[0, 100]))
 
     return fig
