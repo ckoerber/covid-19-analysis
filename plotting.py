@@ -1,8 +1,11 @@
 """Functions to simplify plotting
 """
-
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
+
 import gvar as gv
+
+from pandas import DataFrame
 
 
 def hex_to_rgba(hex_str, alpha):
@@ -27,8 +30,8 @@ def add_gvar_scatter(fig: go.Figure, gv_mode: str = "scatter", **kwargs) -> go.F
     color = kwargs.pop("color", None)
 
     if gv_mode == "band":
-        kwargs.pop("mode")
-        name = kwargs.pop("name")
+        kwargs.pop("mode", None)
+        name = kwargs.pop("name", None)
         showlegend = kwargs.pop("showlegend", True)
         fig.add_trace(
             go.Scatter(
@@ -72,5 +75,122 @@ def add_gvar_scatter(fig: go.Figure, gv_mode: str = "scatter", **kwargs) -> go.F
         )
     else:
         raise KeyError("gv_mode: Only band and scatter are implemented.")
+
+    return fig
+
+
+def plot_sir_sihr_comparison(df_sir: DataFrame, df_sihr: DataFrame, capacity: int):
+    """Multiframe plot comparing SIR vs SIHR
+    """
+
+    fig = make_subplots(
+        rows=2,
+        cols=2,
+        subplot_titles=(
+            "New hospitalizations",
+            "New Infections",
+            "Hospitalized",
+            "Infected (inclusive hospitalized)",
+        ),
+        shared_xaxes=True,
+        x_title="Days",
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=df_sir.index,
+            y=df_sir.hospitalized_new,
+            name="SIR",
+            mode="markers+lines",
+            line_color="#1f77b4",
+        ),
+        row=1,
+        col=1,
+    )
+
+    add_gvar_scatter(
+        fig,
+        x=df_sihr.index,
+        y=df_sihr.hospitalized_new.values,
+        name="SIHR",
+        gv_mode="band",
+        row=1,
+        col=1,
+        color="#bcbd22",
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=df_sir.index,
+            y=df_sir.infected_new,
+            mode="markers+lines",
+            line_color="#1f77b4",
+            showlegend=False,
+        ),
+        row=1,
+        col=2,
+    )
+    add_gvar_scatter(
+        fig,
+        x=df_sihr.index,
+        y=df_sihr.infected_new.values,
+        gv_mode="band",
+        row=1,
+        col=2,
+        color="#bcbd22",
+        showlegend=False,
+    )
+
+    add_gvar_scatter(
+        fig,
+        x=df_sihr.index,
+        y=df_sihr.hospitalized.values,
+        gv_mode="band",
+        row=2,
+        col=1,
+        color="#bcbd22",
+        showlegend=False,
+    )
+    if any(
+        capacity * 0.9
+        < gv.mean(df_sihr.hospitalized.values) + gv.sdev(df_sihr.hospitalized.values)
+    ):
+        fig.add_trace(
+            go.Scatter(
+                x=df_sir.index,
+                y=[capacity] * df_sir.shape[0],
+                mode="lines",
+                line_color="black",
+                name="Hospital capacity",
+            ),
+            row=2,
+            col=1,
+        )
+
+    fig.add_trace(
+        go.Scatter(
+            x=df_sir.index,
+            y=df_sir.infected,
+            mode="markers+lines",
+            line_color="#1f77b4",
+            showlegend=False,
+        ),
+        row=2,
+        col=2,
+    )
+    add_gvar_scatter(
+        fig,
+        x=df_sihr.index,
+        y=df_sihr.infected_inclusive.values,
+        gv_mode="band",
+        row=2,
+        col=2,
+        color="#bcbd22",
+        showlegend=False,
+    )
+
+    fig.update_layout(
+        title="Comparison SIR vs SIHR (Capacity={capacity})".format(capacity=capacity)
+    )
 
     return fig
