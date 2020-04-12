@@ -78,15 +78,20 @@ def sihr_step(  # pylint: disable=R0913
 
     is_grow = kwargs["beta_i"] * susceptible * infected
     ir_loss = kwargs["gamma_i"] * infected
+
     ih_loss = kwargs["beta_h"] * infected
-    open_h = kwargs["capacity"] - hospitalized
-    if ih_loss > open_h:  # take this notation to conserve types
-        ih_loss -= ih_loss - open_h
     hr_loss = kwargs["gamma_h"] * hospitalized
+    dh = ih_loss - hr_loss
+
+    open_h = kwargs["capacity"] - hospitalized
+    # Update hospitalized if capacity insufficient (funny notation to typecast capacity)
+    if dh > open_h:
+        dh -= dh - open_h
+        ih_loss = dh + hr_loss
 
     susceptible -= is_grow
     infected += is_grow - ih_loss - ir_loss
-    hospitalized += ih_loss - hr_loss
+    hospitalized += dh
     recovered += ir_loss + hr_loss
 
     out = {
