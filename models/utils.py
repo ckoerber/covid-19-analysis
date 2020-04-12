@@ -41,9 +41,9 @@ def model_iterator(
 
 def one_minus_logistic_fcn(  # pylint: disable=C0103, W0613
     x: FloatLikeArray,
-    ratio: FloatLike = 1.0,
-    decay_width: FloatLike = 1.0,
-    x0: FloatLike = 0.0,
+    ratio: FloatLike,
+    decay_width: FloatLike,
+    x0: FloatLike,
     amplitude: FloatLike = 1.0,
     **kwargs
 ) -> FloatLikeArray:
