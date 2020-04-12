@@ -2,7 +2,7 @@
 """
 from typing import Generator, Tuple, TypeVar, Callable, Optional, Dict
 
-from numpy import exp, arange
+from numpy import exp, arange, log
 
 FloatLike = TypeVar("FloatLike")
 FloatLikeArray = TypeVar("FloatLikeArray")
@@ -50,3 +50,11 @@ def one_minus_logistic_fcn(  # pylint: disable=C0103, W0613
     """Computes `A(1 - r / (1 + exp(-w(x-x0)))`.
     """
     return amplitude * (1 - ratio / (1 + exp(-decay_width * (x - x0))))
+
+
+def get_doubling_time(
+    beta_i: FloatLike, gamma_i: FloatLike, susceptible: FloatLike
+) -> FloatLike:
+    """Converts beta_i, gamma_i and susceptible to doubling time.
+    """
+    return log(2) / (beta_i * susceptible - gamma_i)
