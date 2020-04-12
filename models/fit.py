@@ -5,7 +5,7 @@ from typing import Dict, Optional, List, Callable, Union
 from numpy import log
 from pandas import DataFrame
 
-from models.utils import FloatLike, FloatLikeArray, model_iterator, get_doubling_time
+from models.utils import FloatLike, FloatLikeArray, model_iterator
 
 
 class FitFcn:  # pylint: disable=R0903
@@ -35,6 +35,34 @@ class FitFcn:  # pylint: disable=R0903
         self.as_array = as_array
         self.drop_rows = drop_rows
 
+    @staticmethod
+    def convert_kwargs(
+        x: Dict[str, FloatLike], pars: Dict[str, FloatLike]
+    ) -> Dict[str, FloatLike]:
+        """Tries to run conversions on prior parameters
+        """
+        kwargs = dict(pars)
+
+        recovery_days_i = kwargs.pop("recovery_days_i", None)
+        if recovery_days_i is not None:
+            kwargs["gamma_i"] = 1 / (recovery_days_i / x["bin_size"])
+
+        social_distance_delay = kwargs.pop("social_distance_delay", None)
+        if social_distance_delay is not None:
+            kwargs["x0"] = social_distance_delay / x["bin_size"]
+
+        social_distance_halfing_days = kwargs.pop("social_distance_halfing_days", None)
+        if social_distance_halfing_days is not None:
+            kwargs["decay_width"] = 1 / (social_distance_halfing_days / x["bin_size"])
+
+        inital_doubling_time = kwargs.pop("inital_doubling_time", None)
+        if inital_doubling_time is not None:
+            kwargs["beta_i"] = (
+                log(2) / (inital_doubling_time / x["bin_size"]) + kwargs["gamma_i"]
+            ) / x.get("initial_susceptible", None)
+
+        return kwargs
+
     def __call__(
         self, x: Dict[str, FloatLike], p: Dict[str, FloatLike]
     ) -> Union[DataFrame, FloatLikeArray]:
@@ -58,16 +86,7 @@ class FitFcn:  # pylint: disable=R0903
         kwargs = dict(p)
         kwargs["capacity"] = x.get("capacity", None)
 
-        recovery_days = kwargs.pop("recovery_days", None)
-        if recovery_days is not None:
-            kwargs["gamma_i"] = 1 / (recovery_days / x["bin_size"])
-            kwargs["gamma_h"] = 1 / (recovery_days / x["bin_size"])
-
-        inital_doubling_time = kwargs.pop("inital_doubling_time", None)
-        if inital_doubling_time is not None:
-            kwargs["beta_i"] = (
-                log(2) / (inital_doubling_time / x["bin_size"]) + kwargs["gamma_i"]
-            ) / s
+        kwargs = self.convert_kwargs(x, kwargs)
 
         data = {
             "susceptible": s if s is not None else kwargs.pop("initial_susceptible"),
