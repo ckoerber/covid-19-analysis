@@ -209,6 +209,9 @@ COLUMN_NAME_MAP = {
     "hospitalization_rate": "P_H",
     "inital_doubling_time": "t2(0) [days]",
     "recovery_days": "Recovery [days]",
+    "ratio": "R",
+    "decay_width": "w",
+    "x0": "td",
 }
 
 
@@ -243,21 +246,25 @@ def summarize_fit(fit: nonlinear_fit):
 def plot_fits(fit: nonlinear_fit) -> go.Figure:
     """Plots nonlinear fit object
     """
-    fitted_columns = [col.replace("_", " ").capitalize() for col in fit.fcn.columns]
+    fitted_columns = {
+        col: col.replace("_", " ").capitalize() for col in fit.fcn.columns
+    }
     fig = make_subplots(
         rows=2,
-        cols=len(fitted_columns),
-        subplot_titles=fitted_columns + [col + " residual" for col in fitted_columns],
+        cols=len(fitted_columns.keys()),
+        subplot_titles=list(fitted_columns.values())
+        + [col + " residual" for col in fitted_columns.values()],
     )
 
     fcn = deepcopy(fit.fcn)
     fcn.as_array = False
     fcn.columns = None
 
-    fit_res = fcn(fit.x, fit.p)
+    fit_res = fcn(fit.x, fit.p).rename(columns=fitted_columns)
 
-    for n_col, (col, yy) in enumerate(zip(fitted_columns, fit.y.T)):
-        plotting.add_gvar_scatter(
+    for n_col, (col, yy) in enumerate(zip(fitted_columns.values(), fit.y.T)):
+        n_col += 1
+        add_gvar_scatter(
             fig,
             x=fit_res.index,
             y=yy,
@@ -266,9 +273,9 @@ def plot_fits(fit: nonlinear_fit) -> go.Figure:
             color="#1f77b4",
             row=1,
             col=n_col,
-            showlegend=n_col == 0,
+            showlegend=n_col == 1,
         )
-        plotting.add_gvar_scatter(
+        add_gvar_scatter(
             fig,
             x=fit_res.index,
             y=fit_res[col].values,
@@ -278,9 +285,9 @@ def plot_fits(fit: nonlinear_fit) -> go.Figure:
             color="#bcbd22",
             row=1,
             col=n_col,
-            showlegend=n_col == 0,
+            showlegend=n_col == 1,
         )
-        plotting.add_gvar_scatter(
+        add_gvar_scatter(
             fig,
             x=fit_res.index,
             y=yy,
@@ -289,23 +296,29 @@ def plot_fits(fit: nonlinear_fit) -> go.Figure:
             color="#1f77b4",
             row=1,
             col=n_col,
+            showlegend=False,
         )
-        plotting.add_gvar_scatter(
+        add_gvar_scatter(
             fig,
             x=fit_res.index,
-            y=y - fit_res[col].values,
+            y=yy - fit_res[col].values,
             name="Residual",
             mode="markers+lines",
             color="#2ca02c",
             row=2,
             col=n_col,
-            showlegend=n_col == 0,
+            showlegend=n_col == 1,
         )
         fig.add_trace(
-            go.Line(x=fit_res.index, y=[0] * fit_res.shape[0], color="black"),
+            go.Scatter(
+                x=fit_res.index,
+                y=[0] * fit_res.shape[0],
+                mode="lines",
+                line_color="black",
+                showlegend=n_col == 0,
+            ),
             row=2,
             col=n_col,
-            showlegend=n_col == 0,
         )
 
     return fig
