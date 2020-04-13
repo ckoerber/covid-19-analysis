@@ -1,6 +1,6 @@
 """Functions to simplify plotting
 """
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from copy import deepcopy
 from datetime import date
@@ -368,5 +368,84 @@ def plot_fits(fit: nonlinear_fit, x: Optional[List[date]] = None) -> go.Figure:
     fig.update_layout(width=800, height=400 * n_rows)
     if plot_effective_beta:
         fig.update_layout(yaxis5=dict(range=[0, 100]))
+
+    return fig
+
+
+def plot_fit_range(  # pylint: disable=R0914
+    fits: Dict[int, nonlinear_fit],
+    col_wrap: int = 4,
+    x: Optional[List[date]] = None,
+    i_column: int = 1,
+    y_max: Optional[float] = None,
+):
+    """Plots a range of fits
+    """
+
+    cols = col_wrap
+    rows = len(fits) // col_wrap
+    rows += 1 if cols * rows < len(fits) else 0
+
+    nt_max = max(fits.keys())
+    max_range_fit = fits[nt_max]
+
+    yy = max_range_fit.y.T[i_column]
+    xx = max_range_fit.x
+
+    x_plot = x if x is not None else arange(xx["n_iter"]) * xx["bin_size"]
+
+    fig = make_subplots(
+        cols=cols,
+        rows=rows,
+        shared_xaxes=True,
+        shared_yaxes=True,
+        subplot_titles=["Fitted days: {0}".format(nt * xx["bin_size"]) for nt in fits],
+        horizontal_spacing=0.1,
+        vertical_spacing=0.1,
+    )
+
+    for i, (nt, fit) in enumerate(fits.items()):
+        add_gvar_scatter(
+            fig,
+            x=x_plot,
+            y=yy,
+            gv_mode="scatter",
+            mode="markers+lines",
+            line_color="#1f77b4",
+            col=i % col_wrap + 1,
+            row=(i - i % col_wrap) // col_wrap + 1,
+            name="Data",
+            showlegend=i == 0,
+        )
+        add_gvar_scatter(
+            fig,
+            x=x_plot,
+            y=fit.fcn(xx, fit.p).T[i_column],
+            gv_mode="band",
+            color="#bcbd22",
+            col=i % col_wrap + 1,
+            row=(i - i % col_wrap) // col_wrap + 1,
+            name="Fit",
+            showlegend=i == 0,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=x_plot[[nt - 2, nt - 2]],
+                y=[0, y_max],
+                mode="lines",
+                line_color="black",
+                name="Fit boundary",
+                showlegend=i == 0,
+            ),
+            col=i % col_wrap + 1,
+            row=(i - i % col_wrap) // col_wrap + 1,
+        )
+
+    fig.update_layout(
+        yaxis_range=(0, y_max),
+        **{f"yaxis{n+1}_range": (0, y_max) for n in range(1, len(fits))},
+        width=800,
+        height=300 * rows,
+    )
 
     return fig
