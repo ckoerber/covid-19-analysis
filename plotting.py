@@ -269,14 +269,16 @@ def plot_fits(fit: nonlinear_fit, x: Optional[List[date]] = None) -> go.Figure:
         col: col.replace("_", " ").capitalize() for col in fit.fcn.columns
     }
     plot_effective_beta = fit.fcn.beta_i_fcn is not None
+    plot_hospitalizations = fit.fcn.sir_fcn.__name__ == "sihr_step"
 
-    n_rows = 3 if plot_effective_beta else 2
+    n_rows = 3 if plot_effective_beta or plot_hospitalizations else 2
     fig = make_subplots(
         rows=n_rows,
         cols=len(fitted_columns.keys()),
         subplot_titles=list(fitted_columns.values())
         + [col + " residual" for col in fitted_columns.values()]
-        + ([r"Social distance [%]"] if plot_effective_beta else []),
+        + ([r"Social distance [%]"] if plot_effective_beta else [])
+        + ([r"Total admissions"] if plot_hospitalizations else []),
         horizontal_spacing=0.1,
         vertical_spacing=0.1,
     )
@@ -348,7 +350,9 @@ def plot_fits(fit: nonlinear_fit, x: Optional[List[date]] = None) -> go.Figure:
             col=n_col,
         )
 
+    i_col = 0
     if plot_effective_beta:
+        i_col += 1
         add_gvar_scatter(
             fig,
             x=x,
@@ -360,10 +364,39 @@ def plot_fits(fit: nonlinear_fit, x: Optional[List[date]] = None) -> go.Figure:
             gv_mode="band",
             color="#bcbd22",
             showlegend=False,
-            col=1,
+            col=i_col,
             row=3,
             y_max=100,
         )
+
+    if plot_hospitalizations:
+        i_col += 1
+        capacity = fit.x["capacity"]
+        add_gvar_scatter(
+            fig,
+            x=x,
+            y=fit_res.hospitalized.values,
+            gv_mode="band",
+            row=3,
+            col=i_col,
+            color="#bcbd22",
+            showlegend=False,
+        )
+        if any(
+            capacity * 0.9
+            < mean(fit_res.hospitalized.values) + sdev(fit_res.hospitalized.values)
+        ):
+            fig.add_trace(
+                go.Scatter(
+                    x=x,
+                    y=[capacity] * fit_res.shape[0],
+                    mode="lines",
+                    line_color="black",
+                    name="Hospital capacity",
+                ),
+                row=3,
+                col=2,
+            )
 
     fig.update_layout(width=800, height=400 * n_rows)
     if plot_effective_beta:
