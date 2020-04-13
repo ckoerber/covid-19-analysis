@@ -47,6 +47,10 @@ class FitFcn:  # pylint: disable=R0903
         if recovery_days_i is not None:
             kwargs["gamma_i"] = 1 / (recovery_days_i / x["bin_size"])
 
+        recovery_days_h = kwargs.pop("recovery_days_h", None)
+        if recovery_days_h is not None:
+            kwargs["gamma_h"] = 1 / (recovery_days_h / x["bin_size"])
+
         social_distance_delay = kwargs.pop("social_distance_delay", None)
         if social_distance_delay is not None:
             kwargs["x0"] = social_distance_delay / x["bin_size"]
