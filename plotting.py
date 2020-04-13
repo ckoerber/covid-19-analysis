@@ -26,7 +26,7 @@ def hex_to_rgba(hex_str: str, alpha: float):
     return out
 
 
-def add_gvar_scatter(
+def add_gvar_scatter(  # pylint: disable=R0914
     fig: go.Figure,
     gv_mode: str = "scatter",
     y_min: float = 0,
