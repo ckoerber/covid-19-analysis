@@ -54,7 +54,7 @@ File | Description | Conclusion
 `SIR-penn-chime-benchmark.ipynb` | Comparison of SIR model in this repository against `penn_chime` | Both modules agree with and without social distancing measures.
 `SIHR-SIR-benchmark.ipynb` | Comparison of SIR model and SIHR model for similar parameters | Models produce similar spread scenario but significantly differ in numbers of hospitalizations if fitted at the initial phase of disease spread
 `NYC-data-preparation.ipynb` | Model-independent analysis of NYC data | NYC data has seemingly no delay between identifying infections and hospitalizations; Looking at temporal variations, new admissions per day fluctuate around ~10-15%.
-`NYC-social-distancing-fits-SIR.ipynb` and `NYC-social-distancing-fits-SIHR.ipynb` | Fit analysis of SIHR model for NYC data | Fit analysis of SIR/SIHR model for NYC data | Data is best described if social distancing policies are fitted as well; to reliably extract social distancing fit parameters, a visible kink in new admissions per day should be visible; Fits after kink are consistent and allow meaningful extrapolations for 1-2 weeks.
+`NYC-social-distancing-fits-SIR.ipynb` and `NYC-social-distancing-fits-SIHR.ipynb` | Fit analysis of SIR/SIHR model for NYC data | Data is best described if social distancing policies are fitted as well; to reliably extract social distancing fit parameters, a visible kink in new admissions per day should be visible; Fits after kink are consistent and allow meaningful extrapolations for 1-2 weeks.
 
 
 
