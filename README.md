@@ -47,11 +47,12 @@ The SIHR model is a variation of the SIR model which explicitly encodes the numb
     S -> I ------> R
          I -> H -> R
 ```
-This allows to analyze the effect of temporal delays between being infected and being admitted to a hospital and hospital capacity limits
+This allows to analyze the effect of
+* temporal delays between being infected and being admitted to a hospital and
+* hospital capacity limits
 
 SIHR introduces two new parameters compared to the regular SIR model,
 the rate of hospitalizations `beta_h` and the recovery rate when hospitalized `gamma_H`.
-
 It is the assumption that the rate of hospitalizations `beta_h` is proportional to the number of infections and similar to the SIR model, the recovery rate is proportional to the number of hospitalizations.
 In particular, the set of model equations is
 ```
