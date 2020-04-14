@@ -46,6 +46,7 @@ Folder | Description
 ---|---
 `models` | Implementation of the SIR and SIHR model including wrappers which simplify fitting
 `utils` | Utility functions for loading data and plotting fits
+`tests` | Unit tests for implemented models
 
 ### Analysis
 
@@ -76,6 +77,11 @@ Scripts are supposed to be run from the repo root directory.
 ## Tests
 
 Models implemented in this repo are compared against `penn_chime` in the `SIR-penn-chime-benchmark.ipynb ` notebook.
+More tests for both models are implemented in the `tests` directory.
+After installing `requirements-dev.txt`, you can run them with
+```bash
+pytest
+```
 
 ## Contribute
 
