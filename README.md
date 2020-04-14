@@ -36,9 +36,9 @@ In particular the `case-hosp-death.csv` is used.
 
 This repository implements the regular SIR model and 3 variations.
 * Standard SIR
-* SIR model with time-dependent `beta` parameter (`beta * (1 - [logistic](https://en.wikipedia.org/wiki/Logistic_function))`)
+* SIR model with time-dependent `beta` parameter (`beta(t) = beta(0) * f(t)`, where `f(t)` is a [logistic function](https://en.wikipedia.org/wiki/Logistic_function))
 * "SIHR" model which is explained below
-* "SIHR" model with time-dependent `beta` parameter (`beta * (1 - logistic)`)
+* "SIHR" model with time-dependent `beta` parameter
 
 ### The SIHR model
 
