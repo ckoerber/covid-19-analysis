@@ -24,27 +24,35 @@ If social measures do not change, the prediction window might be extended.
 
 ## Details
 
+Additionally it allows to crosscheck the effect of fitting new admissions.
+
 ### Data
 
 Notebooks in this repo make use of the  [NYC Department of Health and Mental Hygiene (DOHMH) repo data](https://github.com/nychealth/coronavirus-data).
 In particular the `case-hosp-death.csv` is used.
 
+
 ### Models
 
 This repository implements the regular SIR model and 3 variations.
 * Standard SIR
-* SIR model with time-dependent `beta` parameter (`beta * (1 - logistic)`)
+* SIR model with time-dependent `beta` parameter (`beta * (1 - [logistic](https://en.wikipedia.org/wiki/Logistic_function))`)
 * "SIHR" model which is explained below
 * "SIHR" model with time-dependent `beta` parameter (`beta * (1 - logistic)`)
 
 ### The SIHR model
 
-The SIHR model is a variation of the SIR model which explicitly encodes the number of hospitalizations as a new compartment.
+The SIHR model is a variation of the SIR model which explicitly encodes the number of hospitalizations `H` as a new compartment.
 ```
-    S -> I -> H -> R
-         I ------> R
+    S -> I ------> R
+         I -> H -> R
 ```
-where the rate of hospitalizations `beta_h` is proportional to the number of infections.
+This allows to analyze the effect of temporal delays between being infected and being admitted to a hospital and hospital capacity limits
+
+SIHR introduces two new parameters compared to the regular SIR model,
+the rate of hospitalizations `beta_h` and the recovery rate when hospitalized `gamma_H`.
+
+It is the assumption that the rate of hospitalizations `beta_h` is proportional to the number of infections and similar to the SIR model, the recovery rate is proportional to the number of hospitalizations.
 In particular, the set of model equations is
 ```
 S(t + dt) = S(t) - beta_I S(t) I(t)
@@ -52,9 +60,7 @@ I(t + dt) = I(t) + beta_I S(t) I(t) - beta_h I(t) - gamma_I I(t)
 H(t + dt) = H(t) + beta_h I(t) - gamma_H H(t)
 R(t + dt) = R(t) + gamma_I I(t) + gamma_H H(t)
 ```
-The hospitalization rate `beta_h` is affected by the hospital capacity `C` such that `beta_h = 0` if `H(t) > C`.
-
-This allows to analyze the effect of temporal delays between being infected and being admitted to a hospital and hospital capacity limits.
+Furthermore, the hospitalization rate `beta_h` is affected by the hospital capacity `C` such that `beta_h = 0` if `H(t) > C`.
 
 
 ## Room for improvements
