@@ -12,7 +12,7 @@ from numpy import arange
 from lsqfit import nonlinear_fit
 from gvar import fmt_values, fmt_errorbudget, mean, sdev
 
-from pandas import DataFrame
+from pandas import DataFrame, date_range
 
 
 def hex_to_rgba(hex_str: str, alpha: float):
@@ -49,7 +49,7 @@ def add_gvar_scatter(  # pylint: disable=R0914
 
     if gv_mode == "band":
         kwargs.pop("mode", None)
-        name = kwargs.pop("name", None)
+        name = kwargs.pop("name", "")
         showlegend = kwargs.pop("showlegend", True)
         fig.add_trace(
             go.Scatter(
@@ -58,7 +58,8 @@ def add_gvar_scatter(  # pylint: disable=R0914
                 fill=None,
                 mode="lines",
                 showlegend=False,
-                line={"color": color, "shape": "spline"},
+                name=name + " -1sig",
+                line={"color": color, "shape": "linear"},
                 **kwargs,
             ),
             row=row,
@@ -70,8 +71,22 @@ def add_gvar_scatter(  # pylint: disable=R0914
                 y=yy_max,
                 fill="tonexty",
                 mode="lines",
+                name=name + " +1sig",
+                line={"color": color, "shape": "linear"},
+                fillcolor=hex_to_rgba(color, 0.5),
+                showlegend=False,
+                **kwargs,
+            ),
+            row=row,
+            col=col,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=y_mean,
+                mode="lines",
                 name=name,
-                line={"color": color, "shape": "spline"},
+                line={"color": color, "shape": "linear"},
                 fillcolor=hex_to_rgba(color, 0.5),
                 showlegend=showlegend,
                 **kwargs,
@@ -226,7 +241,7 @@ COLUMN_NAME_MAP = {
 }
 
 
-def summarize_fit(fit: nonlinear_fit):
+def summarize_fit(fit: nonlinear_fit) -> str:
     """Summarizes a non linear fit object
     """
     outputs = dict(fit.p)
@@ -238,33 +253,46 @@ def summarize_fit(fit: nonlinear_fit):
         if key in inputs:
             inputs[val] = inputs.pop(key)
 
-    print("Legend:")
-    print(
-        "\n".join(
-            f"- {val}: {key}" for key, val in COLUMN_NAME_MAP.items() if key in fit.p
-        ),
-        "\n",
+    out = str(fit)
+    # out += "\n-------"
+    # out += "\nResult:"
+    # out += "\n-------"
+    # out += "\n\n"
+    # out += fmt_values(outputs)
+    # out += "\n"
+    out += "\n-------"
+    out += "\nLegend:"
+    out += "\n-------\n"
+    out += "\n".join(
+        f"- {val}: {key}" for key, val in COLUMN_NAME_MAP.items() if key in fit.p
     )
+    out += "\n\n"
+    out += "\n-------------"
+    out += "\nError budget:"
+    out += "\n-------------"
+    out += "\n\n"
+    out += fmt_errorbudget(outputs, inputs, percent=False)
 
-    print(
-        fit,
-        "\n-------",
-        "\nResult:",
-        "\n-------",
-        "\n\n",
-        fmt_values(outputs),
-        "\n",
-        "\n-------------",
-        "\nError budget:",
-        "\n-------------",
-        "\n\n",
-        fmt_errorbudget(outputs, inputs, percent=False),
-    )
+    return out
 
 
-def plot_fits(fit: nonlinear_fit, x: Optional[List[date]] = None) -> go.Figure:
+def plot_fits(
+    fit: nonlinear_fit,
+    x: Optional[List[date]] = None,
+    extend_days: Optional[int] = None,
+    fig: Optional[go.Figure] = None,
+    fit_name: Optional[str] = None,
+    color: Optional[str] = None,
+    plot_data: bool = True,
+    plot_residuals: bool = True,
+    plot_infections: bool = False,
+) -> go.Figure:
     """Plots nonlinear fit object
     """
+    fcn = deepcopy(fit.fcn)
+    fcn.as_array = False
+    fcn.columns = None
+
     fitted_columns = {
         col: col.replace("_", " ").capitalize() for col in fit.fcn.columns
     }
@@ -272,83 +300,91 @@ def plot_fits(fit: nonlinear_fit, x: Optional[List[date]] = None) -> go.Figure:
     plot_hospitalizations = fit.fcn.sir_fcn.__name__ == "sihr_step"
 
     n_rows = 3 if plot_effective_beta or plot_hospitalizations else 2
-    fig = make_subplots(
+    if not plot_residuals:
+        n_rows -= 1
+    if plot_infections:
+        n_rows += 1
+    fig = fig or make_subplots(
         rows=n_rows,
-        cols=len(fitted_columns.keys()),
+        cols=2,
         subplot_titles=list(fitted_columns.values())
-        + [col + " residual" for col in fitted_columns.values()]
-        + ([r"Social distance [%]"] if plot_effective_beta else [])
-        + ([r"Total admissions"] if plot_hospitalizations else []),
+        + (
+            [col + " residual" for col in fitted_columns.values()]
+            if plot_residuals
+            else []
+        )
+        + ([r"Effective beta [%]"] if plot_effective_beta else [])
+        + ([r"Admissions"] if plot_hospitalizations else [])
+        + ([r"Infections (inc: H, exc: R)"] if plot_infections else []),
         horizontal_spacing=0.1,
         vertical_spacing=0.1,
     )
 
-    fcn = deepcopy(fit.fcn)
-    fcn.as_array = False
-    fcn.columns = None
-
-    fit_res = fcn(fit.x, fit.p).rename(columns=fitted_columns)
+    xx, kwargs = fcn.convert_kwargs(fit.x, fit.p)
+    if extend_days is not None:
+        xx["n_iter"] += extend_days // xx["bin_size"]
+        if "date" in xx:
+            xx["date"] = xx["date"].union(
+                date_range(
+                    start=xx["date"].max() + xx["date"].freq,
+                    freq=xx["date"].freq,
+                    periods=extend_days // xx["bin_size"],
+                )
+            )
+    fit_res = fcn(xx, kwargs).rename(columns=fitted_columns)
 
     x = x if x is not None else fit_res.index
 
     for n_col, (col, yy) in enumerate(zip(fitted_columns.values(), fit.y.T)):
         n_col += 1
-        add_gvar_scatter(
-            fig,
-            x=x,
-            y=yy,
-            name="Data",
-            mode="markers+lines",
-            color="#1f77b4",
-            row=1,
-            col=n_col,
-            showlegend=n_col == 1,
-        )
+
         add_gvar_scatter(
             fig,
             x=x,
             y=fit_res[col].values,
-            name="Fit",
+            name=fit_name or "Fit",
             mode="markers+lines",
             gv_mode="band",
-            color="#bcbd22",
+            color=color or "#bcbd22",
             row=1,
             col=n_col,
             showlegend=n_col == 1,
         )
-        add_gvar_scatter(
-            fig,
-            x=x,
-            y=yy,
-            name="Data",
-            mode="markers+lines",
-            color="#1f77b4",
-            row=1,
-            col=n_col,
-            showlegend=False,
-        )
-        add_gvar_scatter(
-            fig,
-            x=x,
-            y=yy - fit_res[col].values,
-            name="Residual",
-            mode="markers+lines",
-            color="#2ca02c",
-            row=2,
-            col=n_col,
-            showlegend=False,
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=x,
-                y=[0] * fit_res.shape[0],
-                mode="lines",
-                line_color="black",
-                showlegend=n_col == 0,
-            ),
-            row=2,
-            col=n_col,
-        )
+        if plot_data:
+            add_gvar_scatter(
+                fig,
+                x=x[: len(yy)],
+                y=yy,
+                name="Data",
+                mode="markers+lines",
+                color="#1f77b4",
+                row=1,
+                col=n_col,
+                showlegend=n_col == 1,
+            )
+        if plot_residuals:
+            add_gvar_scatter(
+                fig,
+                x=x[: len(yy)],
+                y=yy - fit_res[col].values[: len(yy)],
+                name="Residual",
+                mode="markers+lines",
+                color=color or "#bcbd22",
+                row=2,
+                col=n_col,
+                showlegend=False,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=x,
+                    y=[0] * fit_res.shape[0],
+                    mode="lines",
+                    line_color="black",
+                    showlegend=n_col == 0,
+                ),
+                row=2,
+                col=n_col,
+            )
 
     i_col = 0
     if plot_effective_beta:
@@ -356,17 +392,15 @@ def plot_fits(fit: nonlinear_fit, x: Optional[List[date]] = None) -> go.Figure:
         add_gvar_scatter(
             fig,
             x=x,
-            y=fit.fcn.beta_i_fcn(
-                arange(fit.x["n_iter"]), **fit.fcn.convert_kwargs(fit.x, fit.p)
-            )
-            * 100,
+            y=fit.fcn.beta_i_fcn(arange(xx["n_iter"]), **kwargs) * 100,
             mode="markers+lines",
             gv_mode="band",
-            color="#bcbd22",
+            color=color or "#bcbd22",
             showlegend=False,
             col=i_col,
-            row=3,
+            row=3 if plot_residuals else 2,
             y_max=100,
+            name="Effective beta",
         )
 
     if plot_hospitalizations:
@@ -377,30 +411,41 @@ def plot_fits(fit: nonlinear_fit, x: Optional[List[date]] = None) -> go.Figure:
             x=x,
             y=fit_res.hospitalized.values,
             gv_mode="band",
-            row=3,
+            row=3 if plot_residuals else 2,
             col=i_col,
-            color="#bcbd22",
+            color=color or "#bcbd22",
             showlegend=False,
+            name="Admissions",
         )
-        if any(
-            capacity * 0.9
-            < mean(fit_res.hospitalized.values) + sdev(fit_res.hospitalized.values)
-        ):
-            fig.add_trace(
-                go.Scatter(
-                    x=x,
-                    y=[capacity] * fit_res.shape[0],
-                    mode="lines",
-                    line_color="black",
-                    name="Hospital capacity",
-                ),
-                row=3,
-                col=2,
-            )
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=[capacity] * fit_res.shape[0],
+                mode="lines",
+                line_color="black",
+                name="Hospital capacity",
+            ),
+            row=3 if plot_residuals else 2,
+            col=2,
+        )
+
+    if plot_infections:
+        infected = fit_res.infected.values
+        if fit.fcn.sir_fcn.__name__ == "sihr_step":
+            infected += fit_res.hospitalized.values
+        add_gvar_scatter(
+            fig,
+            x=x,
+            y=fit_res.infected.values,
+            gv_mode="band",
+            row=4 if plot_residuals else 3,
+            col=1,
+            color=color or "#bcbd22",
+            showlegend=False,
+            name="Infections",
+        )
 
     fig.update_layout(width=800, height=400 * n_rows)
-    if plot_effective_beta:
-        fig.update_layout(yaxis5=dict(range=[0, 100]))
 
     return fig
 
