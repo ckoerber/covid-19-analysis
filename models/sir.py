@@ -72,7 +72,7 @@ def sihr_step(  # pylint: disable=R0913
     susceptible = sihr["susceptible"]
     infected = sihr["infected"]
     hospitalized = sihr["hospitalized"]
-    recovered = sihr["infected"]
+    recovered = sihr["recovered"]
 
     total = susceptible + infected + recovered + hospitalized
 
@@ -89,16 +89,10 @@ def sihr_step(  # pylint: disable=R0913
         dh -= dh - open_h
         ih_loss = dh + hr_loss
 
-    susceptible -= is_grow
+    susceptible += -is_grow
     infected += is_grow - ih_loss - ir_loss
-    hospitalized += dh
+    hospitalized += ih_loss - hr_loss
     recovered += ir_loss + hr_loss
-
-    out = {
-        "infected_new": is_grow,
-        "hospitalized_new": ih_loss,
-        "recovered_new": ir_loss + hr_loss,
-    }
 
     susceptible = max(susceptible, 0)
     infected = max(infected, 0)
@@ -106,6 +100,11 @@ def sihr_step(  # pylint: disable=R0913
     recovered = max(recovered, 0)
 
     rescale = total / (susceptible + infected + recovered + hospitalized)
+
+    out = dict()
+    out["infected_new"] = is_grow * rescale
+    out["hospitalized_new"] = ih_loss * rescale
+    out["recovered_new"] = (ir_loss + hr_loss) * rescale
 
     out["susceptible"] = susceptible * rescale
     out["infected"] = infected * rescale
