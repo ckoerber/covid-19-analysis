@@ -1,14 +1,10 @@
 # COVID-19 Analysis of NYC Data
 
-Notebooks in this repository provide Python tools for fitting variations of the [SIR model](https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology#The_SIR_model) to COVID-19 data in a statistical context.
-This allows us to extract model parameters like social distancing policies and initial infections with an estimated uncertainty.
-Models are applied to data provided by the [NYC Department of Health and Mental Hygiene (DOHMH)](https://github.com/nychealth/coronavirus-data) and predict a 1-2 week window.
+This repo aims to provide tools which allow to characterize uncertainties in estimations of COVID-19 hospital admissions based on the [CHIME model](https://github.com/CodeForPhilly/chime).
 
-## Details
-
-
-
-See the `doc/report` for more details.
+Implemented tools utilize the [SIR model](https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology#The_SIR_model) and variations which add effects of social distancing measures and delay in hospitalizations.
+Simulations of these models are fitted to data in a statistical context which allows to extract model parameter distributions for, e.g., social distancing policies and initial infections.
+Fitted models are applied to data provided by the [NYC Department of Health and Mental Hygiene (DOHMH)](https://github.com/nychealth/coronavirus-data) to predict a 1-2 week window.
 
 
 ## Disclaimer
@@ -20,25 +16,20 @@ If you are familiar with this field, please reach out and provide feedback.
 
 ## Conclusion
 
-1. Social distancing measures are essential to describe the data. To fit social distancing model parameters, one has to "see a bend" in the data (this defines a necessary condition for fitting).
-2. Fitting daily new admissions makes it possible to consistently predict admissions in a 1-2 week window.
+1. Fitting daily new admissions of the NYC data makes it possible to consistently predict admissions in a 1-2 week window.
 If social measures do not change, the prediction window might be extended.
+2. Social distancing measures are essential to describe the data. To reliably fit social distancing model parameters, one has to "see a bend" in admissions.
+3. Delay in hospitalizations (SIR vs. SIHR)...
 
 
-## Room for improvements
+## Details
 
-#### Parameter and data distributions are approximated by uncorrelated normal distributions
-
-While in the limit of large numbers this approximation will improve, it is known that a few parameter distributions do not follow normal distribution.
-Propagating experimental parameter distributions might increase accuracy; likely, this would require a MCMC implementation of the fit.  
-
-
-## Data
+### Data
 
 Notebooks in this repo make use of the  [NYC Department of Health and Mental Hygiene (DOHMH) repo data](https://github.com/nychealth/coronavirus-data).
 In particular the `case-hosp-death.csv` is used.
 
-## Models
+### Models
 
 This repository implements the regular SIR model and 3 variations.
 * Standard SIR
@@ -49,8 +40,35 @@ This repository implements the regular SIR model and 3 variations.
 ### The SIHR model
 
 The SIHR model is a variation of the SIR model which explicitly encodes the number of hospitalizations as a new compartment.
+```
+    S -> I -> H -> R
+         I ------> R
+```
+where the rate of hospitalizations is proportional to the number of infections
+```
+S(t + dt) = S(t) - beta_I S(t) I(t)
+I(t + dt) = I(t) + beta_I S(t) I(t) - beta_h I(t) - gamma_I I(t)
+H(t + dt) = H(t) + beta_h I(t) - gamma_H H(t)
+R(t + dt) = R(t) + gamma_I H(t) + gamma_I H(t)
+```
+The hospital capacity
 
-## Content
+This allows to analyze the effect of temporal delays between being infected and being admitted to a hospital and hospital capacity limits.
+
+
+## Room for improvements
+
+#### Parameter and data distributions are approximated by uncorrelated normal distributions
+
+While in the limit of large numbers this approximation will improve, it is known that a few parameter distributions do not follow normal distribution.
+Propagating experimental parameter distributions might increase accuracy; likely, this would require a MCMC implementation of the fit.
+
+#### Data uncertainty
+
+While I believe that fitting daily new admissions are likely the most accurate source of information (polling numbers indicate that in some countries, the number of known cases is underestimated by a factor of more than two), I was just able to use a conservative estimate for temporal correlations in these numbers.
+A better estimation of such uncertainties would strengthen the extrapolation.
+
+## Repository content
 
 ### Computation
 
