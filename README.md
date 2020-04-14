@@ -1,6 +1,6 @@
 # COVID-19 Analysis of NYC Data
 
-This repo aims to provide tools which allow to characterize uncertainties in estimations of COVID-19 hospital admissions based on the [CHIME model](https://github.com/CodeForPhilly/chime).
+This repository provides tools which allow to characterize uncertainties in estimations of COVID-19 hospital admissions based on the [CHIME model](https://github.com/CodeForPhilly/chime).
 
 ## Details
 
