@@ -13,7 +13,7 @@ This allows to crosscheck the effect of fitting new admissions.
 Notebooks in this repo make use of the  [NYC Department of Health and Mental Hygiene (DOHMH) repo data](https://github.com/nychealth/coronavirus-data).
 In particular the `case-hosp-death.csv` is used.
 
-Temporal correlations in new admissions are used to estimate uncertainties: data was binned over a range of 1-4 days and deviations in the curve where used to estimate a ~10-15% uncertainty due to temporal effects (see also `NYC-data-perparation.ipynb`).
+Temporal correlations in new admissions are used to estimate uncertainties: data was binned over a range of 1-4 days and deviations in the curve were used to estimate a ~10-15% uncertainty due to temporal effects (see also `NYC-data-preparation.ipynb`).
 
 Because the data suggests that there is no delay in detecting infections and hospitalizations, this suggests that SIR and SIHR should provide similar results.
 
@@ -48,18 +48,23 @@ R(t + dt) = R(t) + gamma_I I(t) + gamma_H H(t)
 ```
 Furthermore, the hospitalization rate `beta_h` is affected by the hospital capacity `C` such that `beta_h = 0` if `H(t) > C`.
 
+The major difference between the SIR and SIHR models are:
+* The SIHR model allows to account for delays between infection and hospitalization
+* The SIHR model makes it possible to include hospital capacities
+* The SIHR model reduces the number of infected persons by assuming that hospitalized persons do not spread COVID-19. Compared to SIR, it causes a different relation between the number of infections and hospitalizations over time.
+
 ## Statistical implementation
 
 The Python modules [`gvar`](https://github.com/gplepage/gvar) and [`lsqfit`](https://github.com/gplepage/lsqfit) are used for propagating data and fit parameter uncertainties (priors) to fit results (posteriors).
-To simplify the analysis, for now all distributions are assumed to be gaussian (which allows to obtain results without using Monte Carlo estimators).
+To simplify the analysis, for now all distributions are assumed to be Gaussian (which allows obtaining results without using Monte Carlo estimators).
 
 
 ## Room for improvements
 
 ### Parameter and data distributions are approximated by uncorrelated normal distributions
 
-While in the limit of large numbers this approximation will improve, it is known that a few parameter distributions do not follow normal distribution.
-Propagating experimental parameter distributions might increase accuracy; likely, this would require a MCMC implementation of the fit.
+While in the limit of large numbers this approximation will improve, it is known that a few parameter distributions do not follow a normal distribution.
+Propagating experimental parameter distributions might increase accuracy; likely, this would require an MCMC implementation of the fit.
 
 ### Data uncertainty
 
