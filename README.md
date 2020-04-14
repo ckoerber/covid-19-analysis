@@ -49,7 +49,7 @@ where the rate of hospitalizations is proportional to the number of infections
 S(t + dt) = S(t) - beta_I S(t) I(t)
 I(t + dt) = I(t) + beta_I S(t) I(t) - beta_h I(t) - gamma_I I(t)
 H(t + dt) = H(t) + beta_h I(t) - gamma_H H(t)
-R(t + dt) = R(t) + gamma_I H(t) + gamma_I H(t)
+R(t + dt) = R(t) + gamma_I I(t) + gamma_H H(t)
 ```
 The hospital capacity
 
