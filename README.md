@@ -4,7 +4,7 @@ This repo aims to provide tools which allow to characterize uncertainties in est
 
 ## Details
 
-This repository implements tools which utilize the [SIR model](https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology#The_SIR_model) and variations which add effects of social distancing measures and delay in hospitalizations.
+This repository implements tools which utilize the [SIR model](https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology#The_SIR_model) and variations which add effects of social distancing measures and delay in hospitalizations (SIHR model).
 Simulations of these models are fitted to data in a statistical context which allows to extract model parameter distributions for, e.g., social distancing policies and initial infections.
 Fitted models are applied to data provided by the [NYC Department of Health and Mental Hygiene (DOHMH)](https://github.com/nychealth/coronavirus-data) to predict a 1-2 week window.
 
@@ -26,26 +26,6 @@ If social measures do not change, the prediction window might be extended.
 
 
 
-## Repository content
-
-### Computation
-
-Folder | Description
----|---
-`models` | Implementation of the SIR and SIHR model including wrappers which simplify fitting
-`utils` | Utility functions for loading data and plotting fits
-`tests` | Unit tests for implemented models
-
-### Analysis notebooks
-
-File | Description | Conclusion
----|---|---
-`SIR-penn-chime-benchmark` | Comparison of SIR model in this repository against `penn_chime` | Both modules agree with and without social distancing measures.
-`SIHR-SIR-benchmark` | Comparison of SIR model and SIHR model for similar parameters | Models produce similar spread scenario but significantly differ in numbers of hospitalizations if fitted at the initial phase of disease spread
-`NYC-data-preparation` | Model-independent analysis of NYC data | NYC data has seemingly no delay between identifying infections and hospitalizations; Looking at temporal variations, new admissions per day fluctuate around ~10-15%.
-`NYC-social-distancing-fits-SIR` and `SIHR` | Fit analysis of SIR/SIHR model for NYC data | Data is best described if social distancing policies are fitted as well; to reliably extract social distancing fit parameters, a visible kink in new admissions per day should be visible; Fits after kink are consistent and allow meaningful extrapolations for 1-2 weeks.
-
-
 ## Install
 
 Install dependencies using, for example, `pip` by running
@@ -62,6 +42,26 @@ Scripts are supposed to be run from the repo root directory.
 The `NYC-predictions` notebook is a good start for learning how to use this module.
 See the [`doc/usage`](doc/usage.md) notes for more details.
 
+
+## Repository content
+
+### Computation
+
+Folder | Description
+---|---
+`models` | Implementation of the SIR and SIHR model including wrappers which simplify fitting
+`utils` | Utility functions for loading data and plotting fits
+`tests` | Unit tests for implemented models
+`docs` | Description of the models and analysis
+
+### Analysis notebooks
+
+File | Description | Conclusion
+---|---|---
+`SIR-penn-chime-benchmark` | Comparison of SIR model in this repository against `penn_chime` | Both modules agree with and without social distancing measures.
+`SIHR-SIR-benchmark` | Comparison of SIR model and SIHR model for similar parameters | Models produce similar spread scenario but significantly differ in numbers of hospitalizations if fitted at the initial phase of disease spread
+`NYC-data-preparation` | Model-independent analysis of NYC data | NYC data has seemingly no delay between identifying infections and hospitalizations; Looking at temporal variations, new admissions per day fluctuate around ~10-15%.
+`NYC-social-distancing-fits-SIR` and `SIHR` | Fit analysis of SIR/SIHR model for NYC data | Data is best described if social distancing policies are fitted as well; to reliably extract social distancing fit parameters, a visible kink in new admissions per day should be visible; Fits after kink are consistent and allow meaningful extrapolations for 1-2 weeks.
 
 ## Tests
 
