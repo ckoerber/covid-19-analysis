@@ -1,8 +1,10 @@
 """Interface for models to simplify fitting
 """
-from typing import Dict, Optional, List, Callable, Union
+from typing import Dict, Optional, List, Callable, Union, Tuple
 
-from numpy import log
+from datetime import timedelta
+
+from numpy import log, delete
 from pandas import DataFrame
 
 from models.utils import FloatLike, FloatLikeArray, model_iterator
@@ -33,39 +35,53 @@ class FitFcn:  # pylint: disable=R0903
         self.beta_i_fcn = beta_i_fcn
         self.columns = columns
         self.as_array = as_array
-        self.drop_rows = drop_rows
+        self.drop_rows = drop_rows or []
 
     @staticmethod
     def convert_kwargs(
         x: Dict[str, FloatLike], pars: Dict[str, FloatLike]
-    ) -> Dict[str, FloatLike]:
+    ) -> Tuple[Dict[str, FloatLike], Dict[str, FloatLike]]:
         """Tries to run conversions on prior parameters
         """
         kwargs = dict(pars)
+        xx = dict(x)
+
+        if "date" in xx:
+            bin_size = int(xx["date"].freq / timedelta(days=1))
+            if "bin_size" in xx:
+                assert bin_size == xx["bin_size"]
+            else:
+                xx["bin_size"] = bin_size
+
+            n_iter = len(xx["date"])
+            if "n_iter" in xx:
+                assert n_iter == xx["n_iter"]
+            else:
+                xx["n_iter"] = n_iter
 
         recovery_days_i = kwargs.pop("recovery_days_i", None)
         if recovery_days_i is not None:
-            kwargs["gamma_i"] = 1 / (recovery_days_i / x["bin_size"])
+            kwargs["gamma_i"] = 1 / (recovery_days_i / xx["bin_size"])
 
         recovery_days_h = kwargs.pop("recovery_days_h", None)
         if recovery_days_h is not None:
-            kwargs["gamma_h"] = 1 / (recovery_days_h / x["bin_size"])
+            kwargs["gamma_h"] = 1 / (recovery_days_h / xx["bin_size"])
 
         social_distance_delay = kwargs.pop("social_distance_delay", None)
         if social_distance_delay is not None:
-            kwargs["x0"] = social_distance_delay / x["bin_size"]
+            kwargs["x0"] = social_distance_delay / xx["bin_size"]
 
         social_distance_halfing_days = kwargs.pop("social_distance_halfing_days", None)
         if social_distance_halfing_days is not None:
-            kwargs["decay_width"] = 1 / (social_distance_halfing_days / x["bin_size"])
+            kwargs["decay_width"] = 1 / (social_distance_halfing_days / xx["bin_size"])
 
         inital_doubling_time = kwargs.pop("inital_doubling_time", None)
         if inital_doubling_time is not None:
             kwargs["beta_i"] = (
-                log(2) / (inital_doubling_time / x["bin_size"]) + kwargs["gamma_i"]
-            ) / x.get("initial_susceptible", None)
+                log(2) / (inital_doubling_time / xx["bin_size"]) + kwargs["gamma_i"]
+            ) / xx["initial_susceptible"]
 
-        return kwargs
+        return xx, kwargs
 
     def __call__(
         self, x: Dict[str, FloatLike], p: Dict[str, FloatLike]
@@ -87,10 +103,8 @@ class FitFcn:  # pylint: disable=R0903
         h = x.get("initial_hospitalized", None)
         r = x.get("initial_recovered", None)
 
-        kwargs = dict(p)
+        xx, kwargs = self.convert_kwargs(x, p)
         kwargs["capacity"] = x.get("capacity", None)
-
-        kwargs = self.convert_kwargs(x, kwargs)
 
         data = {
             "susceptible": s if s is not None else kwargs.pop("initial_susceptible"),
@@ -100,7 +114,7 @@ class FitFcn:  # pylint: disable=R0903
         }
         out = DataFrame(
             data=model_iterator(
-                x["n_iter"], self.sir_fcn, data, beta_i_fcn=self.beta_i_fcn, **kwargs
+                xx["n_iter"], self.sir_fcn, data, beta_i_fcn=self.beta_i_fcn, **kwargs
             )
         )
 
@@ -112,4 +126,7 @@ class FitFcn:  # pylint: disable=R0903
             out = out.values
             if len(out.shape) == 1 or out.shape[1] == 1:
                 out = out.flatten()
+        else:
+            if "date" in x:
+                out.index = delete(x["date"], self.drop_rows)
         return out
