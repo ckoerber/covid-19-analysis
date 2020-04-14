@@ -71,3 +71,23 @@ def test_compare_sir_vs_sihr(sir_data, sihr_data):
     df_sihr = f_sihr(x_sihr, pars_sihr)
 
     assert_frame_equal(df_sir, df_sihr)
+
+
+def test_capacity_limit(sihr_data):
+    """Runs SIHR with finite capacity to ensure H does not surpass limit
+    """
+    x, pars = sihr_data
+
+    capacity_limit = 1000
+
+    f = FitFcn(sihr_step, columns=["hospitalized"], drop_rows=[0], as_array=True)
+
+    # Check that virtual limit is surpassed if no boundary passed to simulation
+    x["capacity"] = inf
+    y = f(x, pars)
+    assert any(y > capacity_limit)
+
+    # Now implement limit and check it holds
+    x["capacity"] = capacity_limit
+    y = f(x, pars)
+    assert all(y.astype(int) <= capacity_limit)
