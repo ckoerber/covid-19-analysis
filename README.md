@@ -1,11 +1,14 @@
 # COVID-19 Analysis of NYC Data
 
 Notebooks in this repository provide Python tools for fitting variations of the [SIR model](https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology#The_SIR_model) to COVID-19 data in a statistical context.
-This allows us to extract parameters like social distancing policies and initial infections with an estimated uncertainty.
-Models are applied to data provided by the [NYC Department of Health and Mental Hygiene (DOHMH)](https://github.com/nychealth/coronavirus-data).
+This allows us to extract model parameters like social distancing policies and initial infections with an estimated uncertainty.
+Models are applied to data provided by the [NYC Department of Health and Mental Hygiene (DOHMH)](https://github.com/nychealth/coronavirus-data) and predict a 1-2 week window.
 
 ## Details
 
+
+
+See the `doc/report` for more details.
 
 
 ## Disclaimer
@@ -17,8 +20,17 @@ If you are familiar with this field, please reach out and provide feedback.
 
 ## Conclusion
 
+1. Social distancing measures are essential to describe the data. To fit social distancing model parameters, one has to "see a bend" in the data (this defines a necessary condition for fitting).
+2. Fitting daily new admissions makes it possible to consistently predict admissions in a 1-2 week window.
+If social measures do not change, the prediction window might be extended.
+
 
 ## Room for improvements
+
+#### Parameter and data distributions are approximated by uncorrelated normal distributions
+
+While in the limit of large numbers this approximation will improve, it is known that a few parameter distributions do not follow normal distribution.
+Propagating experimental parameter distributions might increase accuracy; likely, this would require a MCMC implementation of the fit.  
 
 
 ## Data
@@ -26,7 +38,7 @@ If you are familiar with this field, please reach out and provide feedback.
 Notebooks in this repo make use of the  [NYC Department of Health and Mental Hygiene (DOHMH) repo data](https://github.com/nychealth/coronavirus-data).
 In particular the `case-hosp-death.csv` is used.
 
-## Model
+## Models
 
 This repository implements the regular SIR model and 3 variations.
 * Standard SIR
@@ -58,7 +70,6 @@ File | Description | Conclusion
 `NYC-social-distancing-fits-SIR` and `SIHR` | Fit analysis of SIR/SIHR model for NYC data | Data is best described if social distancing policies are fitted as well; to reliably extract social distancing fit parameters, a visible kink in new admissions per day should be visible; Fits after kink are consistent and allow meaningful extrapolations for 1-2 weeks.
 
 
-
 ## Install
 
 Install dependencies using, for example, `pip` by running
@@ -72,6 +83,8 @@ Scripts are supposed to be run from the repo root directory.
 
 ## Usage
 
+The `NYC-predictions` notebook is a good start for learning how to use this module.
+See the `doc/usage` notes for more details.
 
 
 ## Tests
