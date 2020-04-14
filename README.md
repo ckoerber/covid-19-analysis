@@ -22,7 +22,8 @@ If you are familiar with this field, please reach out and provide feedback.
 1. Fitting daily new admissions of the NYC data makes it possible to consistently predict admissions in a 1-2 week window.
 If social measures do not change, the prediction window might be extended.
 2. Social distancing measures are essential to describe the data. To reliably fit social distancing model parameters, one has to "see a bend" in admissions.
-3. Delay in hospitalizations (SIR vs. SIHR)...
+3. The NYC data suggests no significant delay in hospitalizations once a test is positive.
+4. The data possibly suggests that hospitalized persons are still infectious.
 
 
 
@@ -40,8 +41,6 @@ Scripts are supposed to be run from the repo root directory.
 ## Usage
 
 The `NYC-predictions` notebook is a good start for learning how to use this module.
-See the [`doc/usage`](doc/usage.md) notes for more details.
-
 
 ## Repository content
 
