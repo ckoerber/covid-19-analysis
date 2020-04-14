@@ -1,6 +1,7 @@
 """Tests for SIR model in this repo
 * Compares conserved quantities
 * Compares model against Penn CHIME w/wo social policies
+* Checks logisitc policies in extreme limit
 """
 from typing import Tuple
 from datetime import date
@@ -14,7 +15,7 @@ from pandas.testing import assert_frame_equal, assert_series_equal
 from penn_chime.model.parameters import Parameters, Disposition
 from penn_chime.model.sir import Sir, sim_sir, calculate_dispositions, calculate_admits
 
-from models import sir_step, FitFcn
+from models import sir_step, FitFcn, one_minus_logistic_fcn
 
 COLS_TO_COMPARE = ["susceptible", "infected", "recovered", "hospitalized_new"]
 
@@ -160,6 +161,32 @@ def test_sir_vs_penn_chime_w_policies(penn_chime_setup, sir_data_w_policy):
         return out
 
     f = FitFcn(sir_step, beta_i_fcn=beta_i_fcn)
+    y = f(x, pars)
+
+    assert_frame_equal(
+        sir.raw_df.rename(columns={"hospitalized": "hospitalized_new"})[
+            COLS_TO_COMPARE
+        ],
+        y[COLS_TO_COMPARE],
+    )
+
+
+def test_sir_logistic_policy(penn_chime_setup, sir_data_w_policy):
+    """Compares local SIR against penn_chime SIR for with social policies
+    where social distancing policies are no implemented as a logistic function
+    """
+    p, sir = penn_chime_setup
+    x, pars = sir_data_w_policy
+
+    policies = sir.gen_policy(p)
+
+    # Set up logisitc function to match policies (Sharp decay)
+    pars["beta_i"] = policies[0][0]
+    pars["ratio"] = 1 - policies[1][0] / policies[0][0]
+    pars["x0"] = policies[0][1] - 0.5
+    pars["decay_width"] = 1.0e7
+
+    f = FitFcn(sir_step, beta_i_fcn=one_minus_logistic_fcn)
     y = f(x, pars)
 
     assert_frame_equal(
