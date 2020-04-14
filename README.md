@@ -44,14 +44,15 @@ The SIHR model is a variation of the SIR model which explicitly encodes the numb
     S -> I -> H -> R
          I ------> R
 ```
-where the rate of hospitalizations is proportional to the number of infections
+where the rate of hospitalizations `beta_h` is proportional to the number of infections.
+In particular, the set of model equations is
 ```
 S(t + dt) = S(t) - beta_I S(t) I(t)
 I(t + dt) = I(t) + beta_I S(t) I(t) - beta_h I(t) - gamma_I I(t)
 H(t + dt) = H(t) + beta_h I(t) - gamma_H H(t)
 R(t + dt) = R(t) + gamma_I I(t) + gamma_H H(t)
 ```
-The hospital capacity
+The hospitalization rate `beta_h` is affected by the hospital capacity `C` such that `beta_h = 0` if `H(t) > C`.
 
 This allows to analyze the effect of temporal delays between being infected and being admitted to a hospital and hospital capacity limits.
 
