@@ -107,26 +107,49 @@ class FitFcn:  # pylint: disable=R0903
         kwargs["capacity"] = x.get("capacity", None)
 
         data = {
-            "susceptible": s if s is not None else kwargs.pop("initial_susceptible"),
-            "infected": i if i is not None else kwargs.pop("initial_infected"),
-            "hospitalized": h if h is not None else kwargs.pop("initial_hospitalized"),
-            "recovered": r if r is not None else kwargs.pop("initial_recovered"),
+            "susceptible": s if s is not None else kwargs["initial_susceptible"],
+            "infected": i if i is not None else kwargs["initial_infected"],
+            "hospitalized": h if h is not None else kwargs["initial_hospitalized"],
+            "recovered": r if r is not None else kwargs["initial_recovered"],
         }
-        out = DataFrame(
+        df = DataFrame(
             data=model_iterator(
                 xx["n_iter"], self.sir_fcn, data, beta_i_fcn=self.beta_i_fcn, **kwargs
             )
         )
 
+        return self.post_process(df, xx, kwargs)
+
+    def post_process(
+        self, df: DataFrame, xx: Dict[str, FloatLike], kwargs: Dict[str, FloatLike]
+    ) -> Union[DataFrame, FloatLikeArray]:
+        """Runs post processing steps on computed SIR-like dataframe
+        """
+        if (
+            self.sir_fcn.__name__ == "sir_step"
+            and "length_of_stay" in xx
+            and (not self.columns or "hospitalized" in self.columns)
+        ):
+            initial_hospitalized = (
+                xx["initial_hospitalized"]
+                if "initial_hospitalized" in xx
+                else kwargs["initial_hospitalized"]
+            )
+            shift = xx["length_of_stay"] // (xx["bin_size"] if "bin_size" in xx else 1)
+            df["hospitalized"] = df.hospitalized_new.cumsum()
+            df["hospitalized"][0] = initial_hospitalized
+            df["hospitalized"] -= df["hospitalized"].shift(shift).fillna(0)
+
         if self.drop_rows:
-            out = out.drop(index=self.drop_rows)
+            df = df.drop(index=self.drop_rows)
         if self.columns:
-            out = out[self.columns]
+            df = df[self.columns]
         if self.as_array:
-            out = out.values
-            if len(out.shape) == 1 or out.shape[1] == 1:
-                out = out.flatten()
+            df = df.values
+            if len(df.shape) == 1 or df.shape[1] == 1:
+                df = df.flatten()
         else:
-            if "date" in x:
-                out.index = delete(x["date"], self.drop_rows)
-        return out
+            if "date" in xx:
+                df.index = delete(xx["date"], self.drop_rows)
+
+        return df
