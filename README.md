@@ -56,7 +56,7 @@ YY = gvar(hospitalized_new, standard_deviation_hospitalized_new).T
 These parameters are fixed during the fit
 ```python
 XX = {
-    "date": date_range,
+    "date": date_range, # t values for YY array
     "initial_susceptible": 8.6e6,
     "initial_hospitalized": 100,
     "initial_recovered": 0,
@@ -105,7 +105,9 @@ fit = nonlinear_fit(data=(XX, YY), fcn=fcn, prior=prior)
 
 ```python
 from utils.plotting import plot_fits, summarize_fit
+
 print(summarize_fit(fit_sir))
+
 fig = plot_fits(fit, extend_days=31, plot_residuals=False, plot_infections=True)
 fig.show()
 ```
