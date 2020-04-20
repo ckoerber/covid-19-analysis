@@ -54,7 +54,7 @@ YY = gvar(hospitalized_new, standard_deviation_hospitalized_new).T
 
 ### Prepare model and data meta parameters for fit
 These parameters are fixed during the fit
-```
+```python
 XX = {
     "date": date_range,
     "initial_susceptible": 8.6e6,
