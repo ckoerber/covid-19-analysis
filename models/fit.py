@@ -79,7 +79,11 @@ class FitFcn:  # pylint: disable=R0903
         if inital_doubling_time is not None:
             kwargs["beta_i"] = (
                 log(2) / (inital_doubling_time / xx["bin_size"]) + kwargs["gamma_i"]
-            ) / xx["initial_susceptible"]
+            ) / (
+                xx["initial_susceptible"]
+                if "initial_susceptible" in xx
+                else kwargs["initial_susceptible"]
+            )
 
         return xx, kwargs
 
