@@ -2,6 +2,8 @@
 
 This repository provides tools which allow to characterize uncertainties in estimations of COVID-19 hospital admissions based on the [CHIME model](https://github.com/CodeForPhilly/chime).
 
+![Fit to NYC data for data commit 498c34f](doc/static/nyc-data-fit-sir.png)
+
 ## Details
 
 This repository implements tools which utilize the [SIR model](https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology#The_SIR_model) and variations which add effects of social distancing measures and delay in hospitalizations (SIHR model).
@@ -40,7 +42,77 @@ Scripts are supposed to be run from the repo root directory.
 
 ## Usage
 
-The `NYC-predictions.ipynb` notebook is a good start for learning how to use this module.
+### Prepare data as a set of Gaussian random variables
+```python
+import numpy as np
+from gvar import gvar
+
+# Specify infected new data and associated error
+hospitalized_new, standard_deviation_hospitalized_new = np.array(...), np.array(...)
+YY = gvar(hospitalized_new, standard_deviation_hospitalized_new).T
+```
+
+### Prepare model and data meta parameters for fit
+These parameters are fixed during the fit
+```
+XX = {
+    "date": date_range,
+    "initial_susceptible": 8.6e6,
+    "initial_hospitalized": 100,
+    "initial_recovered": 0,
+    "capacity": 23000,  # Capacity of hospitals
+    "length_of_stay": 14  # Length of stay in hospital (days)
+}
+```
+
+### Prepare fit parameters
+These parameters will be updated during the fit
+```python
+prior = {
+    # Days after which infections double (at the beginning of the simulation)
+    "inital_doubling_time": gvar(3, 2),
+    # Days until infected person is recovered
+    "recovery_days_i": gvar(14, 3),
+    # Inital infections, wild guess since uncertain number
+    "initial_infected": gvar(1.0e4, 2.0e4),
+    # Maximal reduction of social distancing for (logisitc function R)
+    "ratio": gvar(0.7, 0.2),
+    # How many days to go from ~ R/4 to R/2 (logisitc function Delta t)
+    "social_distance_halfing_days": gvar(5, 4),
+    # After how many days distancing measures is 0.5 ratio (logisitc function t0)
+    "social_distance_delay": gvar(5, 4),
+    # The rate how of how many newly infected person become hospitalized
+    "hospitalization_rate": gvar(0.2, 0.1)
+}
+```
+
+### Run the fit
+
+```python
+from lsqfit import nonlinear_fit
+from models import sir_step, one_minus_logistic_fcn, FitFcn
+
+fcn = FitFcn(sir_step,     
+    columns=["hospitalized_new"], # which SIR data to fit
+    beta_i_fcn=one_minus_logistic_fcn, # Function which implements social distancing
+    as_array=True, # fcn(...) returns array
+    drop_rows=[0], # fcn(...) drops first row (since new not defined for day 0; shape of YY)
+)
+fit = nonlinear_fit(data=(XX, YY), fcn=fcn, prior=prior)
+```
+
+### Present fit
+
+```python
+from utils.plotting import plot_fits, summarize_fit
+print(summarize_fit(fit_sir))
+fig = plot_fits(fit, extend_days=31, plot_residuals=False, plot_infections=True)
+fig.show()
+```
+
+### Further details
+
+The `How-to-use-fitter.ipynb` notebook is a good start for learning more while the `NYC-predictions.ipynb` notebook compares both models.
 
 ## Repository content
 
