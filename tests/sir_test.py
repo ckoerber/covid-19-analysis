@@ -13,11 +13,27 @@ from pandas import DataFrame, Series
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 from penn_chime.model.parameters import Parameters, Disposition
-from penn_chime.model.sir import Sir, sim_sir, calculate_dispositions, calculate_admits
+from penn_chime.model.sir import (
+    Sir,
+    sim_sir,
+    calculate_dispositions,
+    calculate_admits,
+    calculate_census,
+)
 
 from models import sir_step, FitFcn, one_minus_logistic_fcn
 
-COLS_TO_COMPARE = ["susceptible", "infected", "recovered", "hospitalized_new"]
+COLS_TO_COMPARE = [
+    "susceptible",
+    "infected",
+    "recovered",
+    "hospitalized_new",
+    "hospitalized",
+]
+COLUMN_MAP = {
+    "hospitalized": "hospitalized_new",
+    "census_hospitalized": "hospitalized",
+}
 
 
 @fixture(name="penn_chime_setup")
@@ -59,6 +75,7 @@ def fixture_penn_chime_raw_df_no_beta(penn_chime_setup) -> DataFrame:
     )
     calculate_dispositions(raw, simsir.rates, market_share=p.market_share)
     calculate_admits(raw, simsir.rates)
+    calculate_census(raw, simsir.days)
 
     raw_df = DataFrame(raw)
 
@@ -84,6 +101,7 @@ def fixture_sir_data(penn_chime_setup, penn_chime_raw_df_no_beta):
     }
     x = {
         "n_iter": raw_df.shape[0],
+        "length_of_stay": p.dispositions["hospitalized"].days,
     }
     return x, pars
 
@@ -107,6 +125,7 @@ def fixture_sir_data_w_policy(penn_chime_setup):
     }
     x = {
         "n_iter": raw_df.shape[0],
+        "length_of_stay": p.dispositions["hospitalized"].days,
     }
     return x, pars
 
@@ -135,9 +154,7 @@ def test_sir_vs_penn_chime_no_policies(penn_chime_raw_df_no_beta, sir_data):
     y = f(x, pars)
 
     assert_frame_equal(
-        penn_chime_raw_df_no_beta.rename(columns={"hospitalized": "hospitalized_new"})[
-            COLS_TO_COMPARE
-        ],
+        penn_chime_raw_df_no_beta.rename(columns=COLUMN_MAP)[COLS_TO_COMPARE],
         y[COLS_TO_COMPARE],
     )
 
@@ -164,10 +181,7 @@ def test_sir_vs_penn_chime_w_policies(penn_chime_setup, sir_data_w_policy):
     y = f(x, pars)
 
     assert_frame_equal(
-        sir.raw_df.rename(columns={"hospitalized": "hospitalized_new"})[
-            COLS_TO_COMPARE
-        ],
-        y[COLS_TO_COMPARE],
+        sir.raw_df.rename(columns=COLUMN_MAP)[COLS_TO_COMPARE], y[COLS_TO_COMPARE],
     )
 
 
@@ -190,8 +204,5 @@ def test_sir_logistic_policy(penn_chime_setup, sir_data_w_policy):
     y = f(x, pars)
 
     assert_frame_equal(
-        sir.raw_df.rename(columns={"hospitalized": "hospitalized_new"})[
-            COLS_TO_COMPARE
-        ],
-        y[COLS_TO_COMPARE],
+        sir.raw_df.rename(columns=COLUMN_MAP)[COLS_TO_COMPARE], y[COLS_TO_COMPARE],
     )
