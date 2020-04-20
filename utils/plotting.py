@@ -3,14 +3,14 @@
 from typing import List, Optional, Dict
 
 from copy import deepcopy
-from datetime import date
+from datetime import date, timedelta
 
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 from numpy import arange
 from lsqfit import nonlinear_fit
-from gvar import fmt_values, fmt_errorbudget, mean, sdev
+from gvar import fmt_errorbudget, mean, sdev
 
 from pandas import DataFrame, date_range
 
@@ -31,9 +31,18 @@ def add_gvar_scatter(  # pylint: disable=R0914
     gv_mode: str = "scatter",
     y_min: float = 0,
     y_max: Optional[float] = None,
+    n_sigmas: float = 1,
     **kwargs,
 ) -> go.Figure:
     """Wraps adds scatter for gvars
+
+    Arguments:
+        fig: Figure to add traces to
+        gv_mode: Either scatter or band
+        y_min: Minimal y-value for cutting bands
+        y_max: Maximal y-value for cutting bands
+        n_sigmas: Standard deviations to plot. 1 sigma corresponds to 68%.
+        **kwargs: For Scatter.
     """
     x = kwargs.pop("x")
     y = kwargs.pop("y")
@@ -44,8 +53,8 @@ def add_gvar_scatter(  # pylint: disable=R0914
     row, col = kwargs.pop("row", None), kwargs.pop("col", None)
     color = kwargs.pop("color", None)
 
-    yy_min = [max(yy, y_min) for yy in y_mean - y_sdev]
-    yy_max = [min(yy, y_max or yy) for yy in y_mean + y_sdev]
+    yy_min = [max(yy, y_min) for yy in y_mean - n_sigmas * y_sdev]
+    yy_max = [min(yy, y_max or yy) for yy in y_mean + n_sigmas * y_sdev]
 
     if gv_mode == "band":
         kwargs.pop("mode", None)
@@ -293,13 +302,15 @@ def plot_fits(
     fcn.as_array = False
     fcn.columns = None
 
+    xx, kwargs = fcn.convert_kwargs(fit.x, fit.p)
+
     fitted_columns = {
         col: col.replace("_", " ").capitalize() for col in fit.fcn.columns
     }
     plot_effective_beta = fit.fcn.beta_i_fcn is not None
-    plot_hospitalizations = fit.fcn.sir_fcn.__name__ == "sihr_step"
-
+    plot_hospitalizations = True
     n_rows = 3 if plot_effective_beta or plot_hospitalizations else 2
+
     if not plot_residuals:
         n_rows -= 1
     if plot_infections:
@@ -313,14 +324,13 @@ def plot_fits(
             if plot_residuals
             else []
         )
-        + ([r"Effective beta [%]"] if plot_effective_beta else [])
-        + ([r"Admissions"] if plot_hospitalizations else [])
-        + ([r"Infections (inc: H, exc: R)"] if plot_infections else []),
+        + ([r"Infections (inc: H, exc: R)"] if plot_infections else [])
+        + ([r"Census (total)"] if plot_hospitalizations else [])
+        + ([r"Effective beta [%]"] if plot_effective_beta else []),
         horizontal_spacing=0.1,
         vertical_spacing=0.1,
     )
 
-    xx, kwargs = fcn.convert_kwargs(fit.x, fit.p)
     if extend_days is not None:
         xx["n_iter"] += extend_days // xx["bin_size"]
         if "date" in xx:
@@ -387,20 +397,21 @@ def plot_fits(
             )
 
     i_col = 0
-    if plot_effective_beta:
+    if plot_infections:
         i_col += 1
+        infected = fit_res.infected.values
+        if fit.fcn.sir_fcn.__name__ == "sihr_step":
+            infected += fit_res.hospitalized.values
         add_gvar_scatter(
             fig,
             x=x,
-            y=fit.fcn.beta_i_fcn(arange(xx["n_iter"]), **kwargs) * 100,
-            mode="markers+lines",
+            y=fit_res.infected.values,
             gv_mode="band",
+            row=3 if plot_residuals else 2,
+            col=1,
             color=color or "#bcbd22",
             showlegend=False,
-            col=i_col,
-            row=3 if plot_residuals else 2,
-            y_max=100,
-            name="Effective beta",
+            name="Infections",
         )
 
     if plot_hospitalizations:
@@ -424,25 +435,27 @@ def plot_fits(
                 mode="lines",
                 line_color="black",
                 name="Hospital capacity",
+                showlegend=False,
             ),
             row=3 if plot_residuals else 2,
             col=2,
         )
 
-    if plot_infections:
-        infected = fit_res.infected.values
-        if fit.fcn.sir_fcn.__name__ == "sihr_step":
-            infected += fit_res.hospitalized.values
+    i_col = 0
+    if plot_effective_beta:
+        i_col += 1
         add_gvar_scatter(
             fig,
             x=x,
-            y=fit_res.infected.values,
+            y=fit.fcn.beta_i_fcn(arange(xx["n_iter"]), **kwargs) * 100,
+            mode="markers+lines",
             gv_mode="band",
-            row=4 if plot_residuals else 3,
-            col=1,
             color=color or "#bcbd22",
             showlegend=False,
-            name="Infections",
+            col=i_col,
+            row=4 if plot_residuals else 3,
+            y_max=100,
+            name="Effective beta",
         )
 
     fig.update_layout(width=800, height=400 * n_rows)
