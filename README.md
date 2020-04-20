@@ -2,7 +2,6 @@
 
 This repository provides tools which allow to characterize uncertainties in estimations of COVID-19 hospital admissions based on the [CHIME model](https://github.com/CodeForPhilly/chime).
 
-![Fit to NYC data for data commit 498c34f](doc/static/nyc-data-fit-sir.png)
 
 ## Details
 
@@ -19,6 +18,8 @@ For now, the analysis was **not cross-checked and reviewed by an expert in the f
 While I am confident that predictions are stable in a time-frame of 1-2 weeks from a data-driven point of view, I might have missed important details specific to this problem.
 If you are familiar with this field, please reach out and provide feedback.
 
+![Fit to NYC data for data commit 498c34f](doc/static/nyc-data-fit-sir.png)
+
 ## Conclusion
 
 1. Fitting daily new admissions of the NYC data makes it possible to consistently predict admissions in a 1-2 week window.
@@ -26,7 +27,6 @@ If social measures do not change, the prediction window might be extended.
 2. Including social distancing measures is essential to describe the data. To reliably fit social distancing model parameters, one has to "see a bend" in admissions.
 3. The NYC data suggests no significant delay in hospitalizations once a test is positive.
 4. The data possibly suggests that hospitalized persons are still infecting others.
-
 
 
 ## Install
@@ -75,11 +75,11 @@ prior = {
     "recovery_days_i": gvar(14, 3),
     # Inital infections, wild guess since uncertain number
     "initial_infected": gvar(1.0e4, 2.0e4),
-    # Maximal reduction of social distancing for (logisitc function R)
+    # Maximal reduction of social distancing for (logistic function R)
     "ratio": gvar(0.7, 0.2),
-    # How many days to go from ~ R/4 to R/2 (logisitc function Delta t)
+    # How many days to go from ~ R/4 to R/2 (logistic function Delta t)
     "social_distance_halfing_days": gvar(5, 4),
-    # After how many days distancing measures is 0.5 ratio (logisitc function t0)
+    # After how many days distancing measures is 0.5 ratio (logistic function t0)
     "social_distance_delay": gvar(5, 4),
     # The rate how of how many newly infected person become hospitalized
     "hospitalization_rate": gvar(0.2, 0.1)
@@ -96,7 +96,7 @@ fcn = FitFcn(sir_step,
     columns=["hospitalized_new"], # which SIR data to fit
     beta_i_fcn=one_minus_logistic_fcn, # Function which implements social distancing
     as_array=True, # fcn(...) returns array
-    drop_rows=[0], # fcn(...) drops first row (since new not defined for day 0; shape of YY)
+    drop_rows=[0], # fcn(...) drops first row (since "new" data not defined for day 0; shape of YY)
 )
 fit = nonlinear_fit(data=(XX, YY), fcn=fcn, prior=prior)
 ```

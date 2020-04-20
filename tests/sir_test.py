@@ -1,7 +1,7 @@
 """Tests for SIR model in this repo
 * Compares conserved quantities
 * Compares model against Penn CHIME w/wo social policies
-* Checks logisitc policies in extreme limit
+* Checks logistic policies in extreme limit
 """
 from typing import Tuple
 from datetime import date
@@ -194,7 +194,7 @@ def test_sir_logistic_policy(penn_chime_setup, sir_data_w_policy):
 
     policies = sir.gen_policy(p)
 
-    # Set up logisitc function to match policies (Sharp decay)
+    # Set up logistic function to match policies (Sharp decay)
     pars["beta_i"] = policies[0][0]
     pars["ratio"] = 1 - policies[1][0] / policies[0][0]
     pars["x0"] = policies[0][1] - 0.5
