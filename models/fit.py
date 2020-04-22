@@ -75,6 +75,7 @@ class FitFcn:  # pylint: disable=R0903
             kwargs["decay_width"] = 1 / (social_distance_halfing_days / xx["bin_size"])
 
         inital_doubling_time = kwargs.pop("inital_doubling_time", None)
+
         if inital_doubling_time is not None:
             total_population = 0
             for key in ["susceptible", "exposed", "infected", "recovered"]:
@@ -95,6 +96,10 @@ class FitFcn:  # pylint: disable=R0903
                 * total_population
             )
 
+        incubation_days = kwargs.pop("incubation_days", None)
+        if incubation_days is not None:
+            kwargs["alpha"] = 1 / (incubation_days / xx["bin_size"])
+
         return xx, kwargs
 
     def __call__(
@@ -102,8 +107,9 @@ class FitFcn:  # pylint: disable=R0903
     ) -> Union[DataFrame, FloatLikeArray]:
         """Runs SIR fcn step for input values x and p
 
-        Either x or p must contain keys
+        Either x or p must contain keys (depending on the sir model)
             * initial_susceptible
+            * initial_exposed
             * initial_infected
             * initial_hospitalized
             * initial_recovered
@@ -113,6 +119,7 @@ class FitFcn:  # pylint: disable=R0903
             p: Parameters for SIR model and beta schedule if specified
         """
         s = x.get("initial_susceptible", None)
+        e = x.get("initial_exposed", None)
         i = x.get("initial_infected", None)
         h = x.get("initial_hospitalized", None)
         r = x.get("initial_recovered", None)
@@ -122,6 +129,7 @@ class FitFcn:  # pylint: disable=R0903
 
         data = {
             "susceptible": s if s is not None else kwargs["initial_susceptible"],
+            "exposed": e if e is not None else kwargs.get("initial_exposed", None),
             "infected": i if i is not None else kwargs["initial_infected"],
             "hospitalized": h if h is not None else kwargs["initial_hospitalized"],
             "recovered": r if r is not None else kwargs["initial_recovered"],
@@ -141,6 +149,7 @@ class FitFcn:  # pylint: disable=R0903
         """
         if (
             self.sir_fcn.__name__ == "sir_step"
+            or self.sir_fcn.__name__ == "seir_step"
             and "length_of_stay" in xx
             and (not self.columns or "hospitalized" in self.columns)
         ):

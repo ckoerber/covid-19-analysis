@@ -51,9 +51,7 @@ def sir_step(sir: Dict[str, FloatLike], **kwargs) -> Dict[str, FloatLike]:
     return out
 
 
-def sihr_step(  # pylint: disable=R0913
-    sihr: Dict[str, FloatLike], **kwargs
-) -> Dict[str, FloatLike]:
+def sihr_step(sihr: Dict[str, FloatLike], **kwargs) -> Dict[str, FloatLike]:
     """Executes SIHR step and patches results such that each component is larger zero.
 
     Arguments:
@@ -114,9 +112,7 @@ def sihr_step(  # pylint: disable=R0913
     return out
 
 
-def seir_step(  # pylint: disable=R0913
-    seir: Dict[str, FloatLike], **kwargs
-) -> Dict[str, FloatLike]:
+def seir_step(seir: Dict[str, FloatLike], **kwargs) -> Dict[str, FloatLike]:
     """Executes SIHR step and patches results such that each component is larger zero.
 
     Arguments:
@@ -127,8 +123,8 @@ def seir_step(  # pylint: disable=R0913
             hospitalized: Hospitalized population
             recovered: Recovered population
         kwargs: FloatLike
-            beta_e: Growth rate for exposed
-            beta_i: Growth rate for infected
+            beta_i: Growth rate for exposed
+            alpha: Incubation rate for infected
             gamma_i: Recovery rate for infected
             nu: Exponent for exposed rate
     """
@@ -139,8 +135,8 @@ def seir_step(  # pylint: disable=R0913
 
     total = susceptible + exposed + infected + recovered
 
-    es_grow = kwargs["beta_e"] * (susceptible / total) ** kwargs["nu"] * infected
-    ie_grow = kwargs["beta_i"] * exposed
+    es_grow = kwargs["beta_i"] * (susceptible / total) ** kwargs["nu"] * infected
+    ie_grow = kwargs["alpha"] * exposed
     ir_loss = kwargs["gamma_i"] * infected
 
     susceptible -= es_grow
