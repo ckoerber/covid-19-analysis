@@ -308,12 +308,11 @@ def plot_fits(
         col: col.replace("_", " ").capitalize() for col in fit.fcn.columns
     }
     plot_effective_beta = fit.fcn.beta_i_fcn is not None
-    plot_hospitalizations = True
-    n_rows = 3 if plot_effective_beta or plot_hospitalizations else 2
+    n_rows = 3 if plot_infections else 2
 
     if not plot_residuals:
         n_rows -= 1
-    if plot_infections:
+    if plot_effective_beta:
         n_rows += 1
     fig = fig or make_subplots(
         rows=n_rows,
@@ -324,8 +323,11 @@ def plot_fits(
             if plot_residuals
             else []
         )
-        + ([r"Infections (inc: H, exc: R)"] if plot_infections else [])
-        + ([r"Census (total)"] if plot_hospitalizations else [])
+        + (
+            [r"Infections (inc: H, exc: R)", r"Census (total)"]
+            if plot_infections
+            else []
+        )
         + ([r"Effective beta [%]"] if plot_effective_beta else []),
         horizontal_spacing=0.1,
         vertical_spacing=0.1,
@@ -413,8 +415,6 @@ def plot_fits(
             showlegend=False,
             name="Infections",
         )
-
-    if plot_hospitalizations:
         i_col += 1
         capacity = fit.x["capacity"]
         add_gvar_scatter(
@@ -453,7 +453,7 @@ def plot_fits(
             color=color or "#bcbd22",
             showlegend=False,
             col=i_col,
-            row=4 if plot_residuals else 3,
+            row=4 if plot_residuals and plot_infections else 3,
             y_max=100,
             name="Effective beta",
         )

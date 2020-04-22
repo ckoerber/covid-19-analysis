@@ -53,8 +53,8 @@ def one_minus_logistic_fcn(  # pylint: disable=C0103, W0613
 
 
 def get_doubling_time(
-    beta_i: FloatLike, gamma_i: FloatLike, susceptible: FloatLike
+    beta_i: FloatLike, gamma_i: FloatLike, susceptible: FloatLike, total: FloatLike
 ) -> FloatLike:
     """Converts beta_i, gamma_i and susceptible to doubling time.
     """
-    return log(2) / (beta_i * susceptible - gamma_i)
+    return log(2) / (beta_i * susceptible / total - gamma_i)

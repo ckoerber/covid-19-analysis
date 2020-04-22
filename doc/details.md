@@ -41,8 +41,8 @@ the rate of hospitalizations `beta_h` and the recovery rate when hospitalized `g
 It is the assumption that the rate of hospitalizations `beta_h` is proportional to the number of infections and similar to the SIR model, the recovery rate is proportional to the number of hospitalizations.
 In particular, the set of model equations is
 ```
-S(t + dt) = S(t) - beta_I S(t) I(t)
-I(t + dt) = I(t) + beta_I S(t) I(t) - beta_h I(t) - gamma_I I(t)
+S(t + dt) = S(t) - beta_I S(t) / N I(t)
+I(t + dt) = I(t) + beta_I S(t) / N I(t) - beta_h I(t) - gamma_I I(t)
 H(t + dt) = H(t) + beta_h I(t) - gamma_H H(t)
 R(t + dt) = R(t) + gamma_I I(t) + gamma_H H(t)
 ```

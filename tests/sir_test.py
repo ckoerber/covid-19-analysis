@@ -90,8 +90,10 @@ def fixture_sir_data(penn_chime_setup, penn_chime_raw_df_no_beta):
     raw_df = penn_chime_raw_df_no_beta
     day0 = raw_df.iloc[0].fillna(0)
 
+    total = day0.susceptible + day0.infected + day0.recovered
+
     pars = {
-        "beta_i": simsir.beta,
+        "beta_i": simsir.beta * total,
         "gamma_i": simsir.gamma,
         "initial_susceptible": day0.susceptible,
         "initial_infected": day0.infected,
@@ -115,7 +117,7 @@ def fixture_sir_data_w_policy(penn_chime_setup):
     day0 = raw_df.iloc[0].fillna(0)
 
     pars = {
-        "beta_i": simsir.beta,
+        "beta_i": None,
         "gamma_i": simsir.gamma,
         "initial_susceptible": day0.susceptible,
         "initial_infected": day0.infected,
@@ -172,7 +174,7 @@ def test_sir_vs_penn_chime_w_policies(penn_chime_setup, sir_data_w_policy):
         ii = 0
         for beta, n_days in policies:
             for _ in range(n_days):
-                out[ii] = beta
+                out[ii] = beta * p.population
                 ii += 1
 
         return out
@@ -195,7 +197,7 @@ def test_sir_logistic_policy(penn_chime_setup, sir_data_w_policy):
     policies = sir.gen_policy(p)
 
     # Set up logistic function to match policies (Sharp decay)
-    pars["beta_i"] = policies[0][0]
+    pars["beta_i"] = policies[0][0] * p.population
     pars["ratio"] = 1 - policies[1][0] / policies[0][0]
     pars["x0"] = policies[0][1] - 0.5
     pars["decay_width"] = 1.0e7

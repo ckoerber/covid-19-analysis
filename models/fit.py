@@ -37,9 +37,8 @@ class FitFcn:  # pylint: disable=R0903
         self.as_array = as_array
         self.drop_rows = drop_rows or []
 
-    @staticmethod
     def convert_kwargs(
-        x: Dict[str, FloatLike], pars: Dict[str, FloatLike]
+        self, x: Dict[str, FloatLike], pars: Dict[str, FloatLike]
     ) -> Tuple[Dict[str, FloatLike], Dict[str, FloatLike]]:
         """Tries to run conversions on prior parameters
         """
@@ -77,12 +76,23 @@ class FitFcn:  # pylint: disable=R0903
 
         inital_doubling_time = kwargs.pop("inital_doubling_time", None)
         if inital_doubling_time is not None:
+            total_population = 0
+            for key in ["susceptible", "exposed", "infected", "recovered"]:
+                key = "initial_" + key
+                total_population += kwargs.get(key) if key in kwargs else xx.get(key, 0)
+
+            if self.sir_fcn.__name__ == "sihr_step":
+                key = "initial_hospitalized"
+                total_population += kwargs.get(key) if key in kwargs else xx.get(key, 0)
+
             kwargs["beta_i"] = (
-                log(2) / (inital_doubling_time / xx["bin_size"]) + kwargs["gamma_i"]
-            ) / (
-                xx["initial_susceptible"]
-                if "initial_susceptible" in xx
-                else kwargs["initial_susceptible"]
+                (log(2) / (inital_doubling_time / xx["bin_size"]) + kwargs["gamma_i"])
+                / (
+                    xx["initial_susceptible"]
+                    if "initial_susceptible" in xx
+                    else kwargs["initial_susceptible"]
+                )
+                * total_population
             )
 
         return xx, kwargs
